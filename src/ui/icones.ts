@@ -1,0 +1,56 @@
+/** Icônes de l'interface, dessinées pour l'application (traits de 24 × 24, couleur du texte). */
+const traits: Record<string, string> = {
+  ouvrir: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v1"/><path d="M3 7v11a2 2 0 0 0 2 2h12.5a2 2 0 0 0 1.9-1.4L22 11H7.5a2 2 0 0 0-1.9 1.4L3 20"/>',
+  enregistrer: '<path d="M5 3h11l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M7 3v5h8V3"/><rect x="7" y="13" width="10" height="8" rx="1"/>',
+  telecharger: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>',
+  imprimer: '<path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/>',
+  annuler: '<path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>',
+  retablir: '<path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/>',
+  moins: '<circle cx="11" cy="11" r="7"/><path d="M8 11h6"/><path d="m20 20-4-4"/>',
+  plus: '<circle cx="11" cy="11" r="7"/><path d="M8 11h6M11 8v6"/><path d="m20 20-4-4"/>',
+  ajuster: '<path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4"/>',
+  chercher: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
+  texte: '<path d="M4 7V5h16v2"/><path d="M12 5v14"/><path d="M9 19h6"/><path d="m17 14 3 3-3 3"/>',
+  ajoutTexte: '<path d="M4 6V4h12v2"/><path d="M10 4v12"/><path d="M7 16h6"/><path d="M19 14v6M16 17h6"/>',
+  surligner: '<path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>',
+  note: '<path d="M4 4h16v12H8l-4 4z"/><path d="M8 9h8M8 12h5"/>',
+  dessin: '<path d="M3 21c3 0 4-2 5-4s2-3 4-3 3 2 5 2 4-3 4-3"/><path d="m14 4 6 6-8 8H6v-6z"/>',
+  signature: '<path d="M3 17c2-1 3-6 5-6s1 6 3 6 3-4 4-4 1 3 3 3 3-1 3-1"/><path d="M3 21h18"/>',
+  image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/>',
+  outils: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/>',
+  menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+  fusion: '<rect x="3" y="3" width="8" height="10" rx="1"/><rect x="13" y="11" width="8" height="10" rx="1"/><path d="M11 8h4l-2-2M15 8l-2 2"/>',
+  pages: '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="9" rx="1"/><rect x="3" y="15" width="7" height="6" rx="1"/><rect x="14" y="15" width="7" height="6" rx="1"/>',
+  miniatures: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>',
+  compresser: '<path d="M8 3v5H3M16 3v5h5M8 21v-5H3M16 21v-5h5"/>',
+  cadenas: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  police: '<path d="M4 20 10 4h1l6 16"/><path d="M6.5 14h8"/><path d="M17 20h4"/>',
+  photo: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M6 21c1-4 3.5-6 6-6s5 2 6 6"/>',
+  comparer: '<rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1"/><path d="M12 2v20"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
+  pivoterGauche: '<path d="M3 4v6h6"/><path d="M3.5 10a9 9 0 1 1 2.1 7.5"/>',
+  pivoterDroite: '<path d="M21 4v6h-6"/><path d="M20.5 10a9 9 0 1 0-2.1 7.5"/>',
+  supprimer: '<path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13"/><path d="M9 7V4h6v3"/>',
+  extraire: '<path d="M14 3h7v7"/><path d="m21 3-9 9"/><path d="M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/>',
+  pageBlanche: '<path d="M6 3h8l4 4v14H6z"/><path d="M12 11v6M9 14h6"/>',
+  insererPdf: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M12 10v7M9 14l3 3 3-3"/>',
+  fermer: '<path d="M6 6l12 12M18 6 6 18"/>',
+  haut: '<path d="m6 15 6-6 6 6"/>',
+  bas: '<path d="m6 9 6 6 6-6"/>',
+  gauche: '<path d="m15 6-6 6 6 6"/>',
+  droite: '<path d="m9 6 6 6-6 6"/>',
+  bouclier: '<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/>',
+  depot: '<path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>',
+  rectangle: '<rect x="4" y="6" width="16" height="12" rx="1"/>',
+  liste: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
+  rapport: '<path d="M6 3h8l4 4v14H6z"/><path d="M9 12h6M9 16h6M9 8h2"/>',
+  formulaire: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6"/><rect x="7" y="16" width="3" height="2"/>',
+  selection: '<path d="m5 3 14 8-6 2-2 6z"/>',
+};
+
+export function icone(nom: keyof typeof traits | string): string {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${traits[nom] ?? ""}</svg>`;
+}
+
+/** Le logo de l'application (dessin de l'icône des versions bureau : feuille bleue et plume). */
+export const LOGO = `<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="10" y="4" width="40" height="52" rx="6" fill="#2563eb"/><path d="M40 4v10a4 4 0 0 0 4 4h6" fill="#93c5fd"/><path d="M18 22h20M18 30h24M18 38h14" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/><path d="m44 34 10 10-14 14-11 2 2-11z" fill="#16a34a" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/></svg>`;

@@ -108,3 +108,30 @@ describe("comparaison de deux PDF", () => {
     expect(comparer(a, b, { ...OPTIONS, mode: "text", ignorerCasse: true, ignorerPonctuation: true }).differences).toEqual([]);
   });
 });
+
+describe("comparaison : cas particuliers", () => {
+  it("un mot dont seule la couleur change est repéré à l'image", () => {
+    const helv2 = (d: mupdf.PDFDocument) => ({ F1: policeSimple(d, new mupdf.Font("Helvetica")) });
+    const a = relire(octets(creerPdf([{ lignes: [{ police: "F1", x: 72, y: 100, taille: 14, texte: "Montant total" }, { police: "F1", x: 72, y: 130, taille: 14, texte: "1 250 euros" }] }], helv2)));
+    const b = relire(octets(creerPdf([{ lignes: [{ police: "F1", x: 72, y: 100, taille: 14, texte: "Montant total" }, { police: "F1", x: 72, y: 130, taille: 14, texte: "1 250 euros", couleur: [0.9, 0, 0] }] }], helv2)));
+    const r = comparer(a, b, OPTIONS);
+    expect(r.differences.filter((d) => d.type !== "visuel")).toEqual([]);
+    const v = r.differences.filter((d) => d.type === "visuel");
+    expect(v.length).toBe(1);
+    const [, y0, , y1] = v[0].marquesB[0][1];
+    expect(y0).toBeLessThan(130);
+    expect(y1).toBeGreaterThan(118);
+  });
+
+  it("deux documents de 150 pages sans rapport : calcul borné", () => {
+    const mots = (graine: number) => [...Array(150)].map((_, p) => [...Array(30)].map((_, l) =>
+      [...Array(10)].map((_, k) => ["le", "de", "un", "texte", "page", "valeur", "rapport", "année", "projet", "mot"][(p * 7 + l * 3 + k * graine) % 10] + ((p + l + k * graine) % 50)).join(" ")));
+    const a = document(mots(1)), b = document(mots(3));
+    const debut = Date.now();
+    const r = comparer(a, b, { ...OPTIONS, mode: "text" });
+    const duree = Date.now() - debut;
+    expect(r.pagesA).toBe(150);
+    expect(duree).toBeLessThan(60000);
+    console.log(`150 pages sans rapport : ${duree} ms, ${r.differences.length} différences`);
+  }, 120000);
+});

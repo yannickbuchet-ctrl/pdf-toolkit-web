@@ -1,0 +1,13 @@
+{
+  "name": "PDF Toolkit Web",
+  "short_name": "PDF Toolkit",
+  "description": "Éditeur de PDF en français qui fonctionne entièrement dans le navigateur.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f1f5f9",
+  "theme_color": "#2563eb",
+  "icons": [{ "src": "icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }],
+  "file_handlers": [{ "action": "./", "accept": { "application/pdf": [".pdf"] } }]
+}

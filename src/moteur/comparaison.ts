@@ -5,23 +5,9 @@
  */
 import * as mupdf from "mupdf";
 import { operations } from "./difflib";
+import { type Difference, type Mot, type Options, type Rect, type Resultat, type Type } from "./comparaisonTextes";
 
-export type Rect = [number, number, number, number];
-
-export const TYPES = {
-  ajout: ["#16a34a", "Ajout", "ajouts"],
-  suppression: ["#dc2626", "Suppression", "suppressions"],
-  modification: ["#ea7a00", "Modification", "modifications"],
-  visuel: ["#7c3aed", "Changement visuel", "changements visuels"],
-  page_ajoutee: ["#16a34a", "Page ajoutée", "pages ajoutées"],
-  page_supprimee: ["#dc2626", "Page supprimée", "pages supprimées"],
-  mise_en_page: ["#0891b2", "Mise en page", "changements de mise en page"],
-} as const;
-export type Type = keyof typeof TYPES;
-export const TYPES_TEXTE: Type[] = ["ajout", "suppression", "modification"];
-export const TYPES_PAGE: Type[] = ["page_ajoutee", "page_supprimee", "mise_en_page"];
-export const MODES = { both: "Texte et visuel", text: "Texte seul", visual: "Visuel seul" } as const;
-export type Mode = keyof typeof MODES;
+export * from "./comparaisonTextes";
 
 const DPI = 72; // résolution du rendu comparé pixel par pixel
 const CELLULE = 4; // pixels : grain des zones de différence visuelle (4 px à 72 ppp ≈ 1,4 mm)
@@ -34,44 +20,7 @@ const BANDE = 30; // écart (en pages) cherché autour de la diagonale pour appa
 const VIGNETTE: [number, number] = [24, 34];
 const PART_NOUVELLE = 0.9; // part de mots nouveaux au-delà de laquelle une page sans équivalent est « ajoutée »
 const EXTRAIT = 80;
-
-export interface Options {
-  mode: Mode;
-  ignorerCasse: boolean;
-  ignorerPonctuation: boolean;
-  /** Tolérance de la comparaison visuelle, de 0 à 1. */
-  tolerance: number;
-}
-
-/** Un mot : page, rectangle affiché, texte, clé de comparaison, ligne. */
-type Mot = [number, Rect, string, string, string];
-
-export interface Difference {
-  type: Type;
-  marquesA: [number, Rect][];
-  marquesB: [number, Rect][];
-  ancien: string;
-  nouveau: string;
-  detail?: string;
-  niveauPage?: boolean;
-  pageA: number | null;
-  pageB: number | null;
-  paire: number;
-  /** Mots d'origine, gardés jusqu'à la fin du calcul. */
-  brutA?: Mot[];
-  brutB?: Mot[];
-}
-
-export interface Resultat {
-  paires: [number | null, number | null][];
-  differences: Difference[];
-  notes: string[];
-  pagesA: number;
-  pagesB: number;
-  texte: boolean;
-  visuel: boolean;
-  options: Options;
-}
+const MOTS_MAX = 2e7; // au-delà de ce produit des nombres de mots, un bloc n'est pas comparé mot à mot
 
 const union = (a: Rect, b: Rect): Rect => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
 const intersection = (a: Rect, b: Rect): Rect => [Math.max(a[0], b[0]), Math.max(a[1], b[1]), Math.min(a[2], b[2]), Math.min(a[3], b[3])];
@@ -130,6 +79,17 @@ export function motsDePage(page: mupdf.Page, casse = false, ponctuation = false)
     st.destroy();
   }
   return mots;
+}
+
+/**
+ * Les mots de mots présents tels quels au même endroit dans autres (à tolerance points près) : ils n'ont ni changé ni
+ * bougé, et la comparaison visuelle les compare donc à l'image.
+ */
+export function motsImmobiles<T extends [Rect, string, ...unknown[]]>(mots: T[], autres: T[], tolerance = 0.5): T[] {
+  const places = new Map<string, Rect[]>();
+  for (const [r, t] of autres) places.set(t, [...(places.get(t) ?? []), r]);
+  return mots.filter(([w, t]) => (places.get(t) ?? []).some((r) =>
+    Math.abs(w[0] - r[0]) <= tolerance && Math.abs(w[1] - r[1]) <= tolerance && Math.abs(w[2] - r[2]) <= tolerance && Math.abs(w[3] - r[3]) <= tolerance));
 }
 
 /** Vignette en niveaux de gris de taille fixe, pour apparier des pages sans texte. */
@@ -266,7 +226,8 @@ function changementsMots(ancien: Mot[], nouveau: Mot[]): Difference[] {
  * paragraphe inséré), puis les mots des seuls blocs de lignes qui diffèrent. Renvoie aussi le nombre de mots
  * identiques par couple de pages, qui sert à apparier les pages.
  */
-export function differencesTexte(pagesA: [Rect, string, string, string][][], pagesB: [Rect, string, string, string][][]): { elements: Difference[]; communs: Map<string, number> } {
+export function differencesTexte(pagesA: [Rect, string, string, string][][], pagesB: [Rect, string, string, string][][],
+  progression: (f: number) => void = () => {}): { elements: Difference[]; communs: Map<string, number> } {
   const suite = (pages: [Rect, string, string, string][][]): Mot[] =>
     pages.flatMap((liste, page) => liste.map(([r, t, k, l]) => [page, r, t, k, l] as Mot));
   const motsA = suite(pagesA), motsB = suite(pagesB);
@@ -300,6 +261,8 @@ export function differencesTexte(pagesA: [Rect, string, string, string][][], pag
   const communs = new Map<string, number>();
   const ajouter = (a: number, b: number, n: number) => communs.set(`${a},${b}`, (communs.get(`${a},${b}`) ?? 0) + n);
   const elements: Difference[] = [];
+  const blocs = segments.filter((x) => x[0] === "block").length;
+  let fait = 0;
   for (const [genre, i1, i2, j1, j2] of segments) {
     if (genre === "equal") {
       for (let k = 0; k < i2 - i1; k++) {
@@ -310,6 +273,16 @@ export function differencesTexte(pagesA: [Rect, string, string, string][][], pag
     }
     const partA = i2 > i1 ? motsA.slice(lignesA[i1][0], lignesA[i2 - 1][1]) : [];
     const partB = j2 > j1 ? motsB.slice(lignesB[j1][0], lignesB[j2 - 1][1]) : [];
+    fait++;
+    progression(fait / Math.max(1, blocs));
+    if (partA.length * partB.length > MOTS_MAX) {
+      // Bloc immense (documents sans rapport) : la comparaison mot à mot prendrait des minutes et ne dirait rien de
+      // plus. Tout le texte du bloc est déclaré supprimé d'un côté et ajouté de l'autre, page par page.
+      const parPage = (mots: Mot[]) => [...new Set(mots.map((w) => w[0]))].map((p) => mots.filter((w) => w[0] === p));
+      for (const m of parPage(partA)) elements.push(element("suppression", m, []));
+      for (const m of parPage(partB)) elements.push(element("ajout", [], m));
+      continue;
+    }
     for (const [t, a1, a2, b1, b2] of operations(partA.map((w) => w[3]), partB.map((w) => w[3]))) {
       if (t === "equal") {
         for (let k = 0; k < a2 - a1; k++) ajouter(partA[a1 + k][0], partB[b1 + k][0], 1);
@@ -454,7 +427,7 @@ export function comparer(docA: mupdf.Document, docB: mupdf.Document, options: Op
   let communs = new Map<string, number>();
   if (avecTexte) {
     progression(0.35, "Comparaison du texte…");
-    ({ elements, communs } = differencesTexte(infosA.map((x) => x.mots), infosB.map((x) => x.mots)));
+    ({ elements, communs } = differencesTexte(infosA.map((x) => x.mots), infosB.map((x) => x.mots), (fr) => progression(0.3 + 0.25 * fr, "Comparaison du texte…")));
     if (!modeTexte) elements = [];
   }
 
@@ -539,11 +512,19 @@ export function comparer(docA: mupdf.Document, docB: mupdf.Document, options: Op
           pageA: null, pageB: null, paire: 0,
         });
       }
-      const masques = modeTexte ? [...infosA[a].mots.map((w) => w[0]), ...infosB[b].mots.map((w) => w[0])] : [];
+      // Les mots changés ou déplacés sont déjà comparés mot à mot : ils sont masqués. Un mot identique resté exactement à
+      // sa place, lui, reste comparé à l'image : un changement de couleur, de police, un surlignage ou un tampon posé
+      // dessus doivent apparaître (unmoved_words sur PC).
+      let masques: Rect[] = [];
+      if (modeTexte) {
+        const ma = infosA[a].mots, mb = infosB[b].mots;
+        const restesA = new Set(motsImmobiles(ma, mb)), restesB = new Set(motsImmobiles(mb, ma));
+        masques = [...ma.filter((w) => !restesA.has(w)).map((w) => w[0]), ...mb.filter((w) => !restesB.has(w)).map((w) => w[0])];
+      }
       for (const zone of differencesVisuelles(pa, pb, options.tolerance, masques)) {
         elements.push({
           type: "visuel", marquesA: [[a, intersection(zone, ra)]], marquesB: [[b, intersection(zone, rb)]], ancien: "", nouveau: "",
-          detail: "Image, dessin ou mise en page modifiés", pageA: null, pageB: null, paire: 0,
+          detail: "Aspect modifié : image, dessin, couleur, surlignage ou mise en page", pageA: null, pageB: null, paire: 0,
         });
       }
       progression(0.65 + (0.35 * (k + 1)) / Math.max(1, comparees.length), `Comparaison visuelle : page ${k + 1} / ${comparees.length}`);
@@ -570,28 +551,3 @@ export function comparer(docA: mupdf.Document, docB: mupdf.Document, options: Op
   return { paires, differences: elements, notes, pagesA: n, pagesB: m, texte: modeTexte, visuel: modeVisuel, options: { ...options } };
 }
 
-/** Nombre de différences par type, dans l'ordre de TYPES. */
-export function decompte(elements: Difference[]): [Type, number][] {
-  const c = new Map<Type, number>();
-  for (const e of elements) c.set(e.type, (c.get(e.type) ?? 0) + 1);
-  return (Object.keys(TYPES) as Type[]).filter((t) => c.has(t)).map((t) => [t, c.get(t)!]);
-}
-
-/** « 3 modifications, 1 ajout… » (vide s'il n'y a aucune différence). */
-export function resume(elements: Difference[]): string {
-  return decompte(elements).map(([t, n]) => `${n} ${n > 1 ? TYPES[t][2] : TYPES[t][1].toLowerCase()}`).join(", ");
-}
-
-/** Description d'une différence en une ligne. */
-export function description(e: Difference): string {
-  if (e.type === "modification") return `« ${e.ancien} » → « ${e.nouveau} »`;
-  if (e.type === "ajout") return `« ${e.nouveau} »`;
-  if (e.type === "suppression") return `« ${e.ancien} »`;
-  return e.detail ?? "";
-}
-
-export function titrePaire([a, b]: [number | null, number | null]): string {
-  if (a === null) return `Page ${b! + 1} de B (sans équivalent dans A)`;
-  if (b === null) return `Page ${a + 1} de A (sans équivalent dans B)`;
-  return `Page ${a + 1} de A ↔ page ${b + 1} de B`;
-}

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>PDF Toolkit Web</title>
+    <meta name="description" content="Éditeur de PDF en français qui fonctionne entièrement dans votre navigateur : vos fichiers ne quittent jamais votre ordinateur." />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#2563eb" />
+    <!-- La politique de sécurité (aucune ressource extérieure) est ajoutée à la construction : voir vite.config.ts. -->
+    <link rel="icon" href="./icone.svg" type="image/svg+xml" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+  </head>
+  <body>
+    <a class="evitement" href="#visionneuse">Aller au document</a>
+    <div id="application"></div>
+    <noscript>
+      <p class="sans-script">PDF Toolkit Web a besoin de JavaScript : tout le traitement des PDF se fait dans votre navigateur.</p>
+    </noscript>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
