@@ -20,6 +20,65 @@ export function el<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<
   return e;
 }
 
+/** Une entrée de menu : icône, texte, action ; actif à false la grise ; coche l'affiche comme choisie. null : séparateur. */
+export type EntreeMenu = { icone: string; texte: string; action: () => void; actif?: boolean; coche?: boolean } | null;
+
+/**
+ * Un menu flottant attaché à un bouton. Il s'ouvre sous le bouton, ou au-dessus quand le bouton est dans la moitié
+ * basse de l'écran (barre du bas sur téléphone). Échap, Tab ou un clic ailleurs le ferment ; flèches pour s'y déplacer.
+ */
+export function menuFlottant(ancre: HTMLElement, nom: string, entrees: EntreeMenu[]) {
+  document.querySelector(".menu-flottant")?.remove();
+  const m = el("div", { class: "menu-flottant", role: "menu", "aria-label": nom });
+  for (const entree of entrees) {
+    if (!entree) {
+      m.append(el("hr"));
+      continue;
+    }
+    const b = el("button", {
+      type: "button", role: entree.coche === undefined ? "menuitem" : "menuitemcheckbox", class: "bouton", disabled: entree.actif === false,
+      "aria-checked": entree.coche === undefined ? null : String(entree.coche), html: `${icone(entree.icone)}<span>${echapper(entree.texte)}</span>`,
+    });
+    b.addEventListener("click", () => {
+      fermer();
+      entree.action();
+    });
+    m.append(b);
+  }
+  const r = ancre.getBoundingClientRect();
+  if (r.top > window.innerHeight / 2) m.style.bottom = `${window.innerHeight - r.top + 6}px`;
+  else m.style.top = `${r.bottom + 4}px`;
+  // Centré sur le bouton, puis ramené dans l'écran avec 8 px de marge.
+  document.body.append(m);
+  const largeur = m.getBoundingClientRect().width;
+  m.style.left = `${Math.max(8, Math.min(window.innerWidth - largeur - 8, r.left + r.width / 2 - largeur / 2))}px`;
+  ancre.setAttribute("aria-expanded", "true");
+  const items = [...m.querySelectorAll<HTMLButtonElement>("button:not(:disabled)")];
+  items[0]?.focus();
+  function fermer() {
+    m.remove();
+    ancre.setAttribute("aria-expanded", "false");
+    document.removeEventListener("pointerdown", dehors, true);
+  }
+  const dehors = (e: Event) => {
+    if (!m.contains(e.target as Node) && e.target !== ancre && !ancre.contains(e.target as Node)) fermer();
+  };
+  document.addEventListener("pointerdown", dehors, true);
+  m.addEventListener("keydown", (e) => {
+    const i = items.indexOf(document.activeElement as HTMLButtonElement);
+    if (e.key === "Escape") {
+      fermer();
+      ancre.focus();
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      items[(i + 1) % items.length].focus();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      items[(i - 1 + items.length) % items.length].focus();
+    } else if (e.key === "Tab") fermer();
+  });
+}
+
 /** Un bouton avec icône ; le libellé sert aussi d'info-bulle et de nom accessible. */
 export function bouton(nomIcone: string, libelle: string, action: (ev: MouseEvent) => void, options: { classe?: string; texte?: boolean; raccourci?: string; bascule?: boolean } = {}): HTMLButtonElement {
   const b = el("button", {

@@ -127,6 +127,7 @@ try {
     await page.screenshot({ path: path.join(captures, "polices.png") });
     await page.keyboard.press("Escape");
 
+    if (await page.locator(".barre-mobile").isVisible()) throw new Error("La barre du bas ne doit pas apparaître sur ordinateur.");
     await page.getByRole("button", { name: "Outils" }).click();
     await page.getByRole("menuitem", { name: "Comparer deux PDF…" }).click();
     const dialogue = page.getByRole("dialog", { name: "Comparer deux PDF" });
@@ -187,12 +188,17 @@ try {
 
     await contexte.close();
 
-    // Téléphone : le document et la barre d'outils à 390 pixels de large.
+    // Téléphone (390 px, tactile) : barre du haut réduite, barre du bas, menus vers le haut, zoom à deux doigts.
     const mobile = await navigateur.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: "fr-FR" });
     const tel = await mobile.newPage();
     tel.on("pageerror", (e) => erreurs.push(`mobile : ${e.message}`));
+    const verifier = (condition, message) => {
+      if (!condition) throw new Error(`Téléphone : ${message}`);
+    };
     await tel.goto(`http://localhost:${PORT}/`);
     await tel.getByText("Prêt. Ouvrez ou déposez un PDF.").waitFor({ timeout: 30000 });
+    verifier(!(await tel.locator(".barre-mobile").isVisible()), "la barre du bas ne doit pas apparaître sans document");
+    await tel.screenshot({ path: path.join(captures, "telephone-accueil.png") });
     await tel.evaluate((o) => {
       const f = new File([new Uint8Array(o)], "devis-exemple.pdf", { type: "application/pdf" });
       const dt = new DataTransfer();
@@ -200,9 +206,79 @@ try {
       for (const type of ["dragenter", "dragover", "drop"]) window.dispatchEvent(new DragEvent(type, { dataTransfer: dt, bubbles: true, cancelable: true }));
     }, octets);
     await tel.waitForFunction(() => document.querySelector(".page canvas.rendu")?.width > 100);
-    await tel.getByRole("button", { name: "Ajuster à la largeur" }).click();
-    await tel.waitForTimeout(800);
+    await tel.waitForTimeout(500);
+    const mesures = await tel.evaluate(() => {
+      const barre = document.querySelector(".barre");
+      const page = document.querySelector(".page").getBoundingClientRect();
+      const visibles = [...barre.querySelectorAll("button")].filter((b) => b.offsetParent !== null).map((b) => b.getAttribute("aria-label") ?? b.textContent.trim());
+      return { deborde: barre.scrollWidth - barre.clientWidth, page: [page.left, page.right], largeur: innerWidth, visibles, horizontal: document.querySelector(".visionneuse").scrollWidth - document.querySelector(".visionneuse").clientWidth };
+    });
+    verifier(mesures.deborde <= 0, `la barre du haut déborde de ${mesures.deborde} px`);
+    verifier(mesures.page[0] >= 0 && mesures.page[1] <= mesures.largeur, `la page ne tient pas en largeur à l'ouverture : ${mesures.page}`);
+    verifier(mesures.horizontal <= 1, `défilement horizontal du document : ${mesures.horizontal} px`);
+    for (const nom of ["Ouvrir", "Enregistrer", "Annuler", "Rétablir", "Outils"]) verifier(mesures.visibles.includes(nom), `bouton « ${nom} » absent de la barre du haut : ${mesures.visibles}`);
+    const bas = tel.getByRole("navigation", { name: "Actions du document" });
+    for (const nom of ["Pages", "Modifier", "Annoter", "Chercher", "Plus"]) {
+      const b = bas.getByRole("button", { name: nom });
+      const r = await b.boundingBox();
+      verifier(r && r.height >= 48 && r.y + r.height <= 844, `bouton du bas « ${nom} » trop petit ou hors de l'écran`);
+    }
     await tel.screenshot({ path: path.join(captures, "telephone.png") });
+
+    // Annoter : le menu s'ouvre au-dessus de la barre et choisit un outil.
+    await bas.getByRole("button", { name: "Annoter" }).tap();
+    const menuAnnoter = tel.getByRole("menu", { name: "Annoter" });
+    await menuAnnoter.waitFor();
+    const rm = await menuAnnoter.boundingBox(), rb = await bas.boundingBox();
+    verifier(rm.y + rm.height <= rb.y + 1 && rm.y >= 0 && rm.x >= 0 && rm.x + rm.width <= 390, `menu Annoter mal placé : ${JSON.stringify(rm)}`);
+    await tel.screenshot({ path: path.join(captures, "telephone-annoter.png") });
+    await menuAnnoter.getByRole("menuitemcheckbox", { name: "Surligner" }).tap();
+    verifier(await tel.getByRole("toolbar", { name: "Options de l'outil" }).isVisible(), "les options du surligneur n'apparaissent pas");
+    verifier(await bas.getByRole("button", { name: "Annoter" }).evaluate((b) => b.classList.contains("actif")), "le bouton Annoter devrait signaler l'outil actif");
+
+    // Modifier le texte : toucher une ligne ouvre l'éditeur.
+    await bas.getByRole("button", { name: "Modifier" }).tap();
+    verifier((await bas.getByRole("button", { name: "Modifier" }).getAttribute("aria-pressed")) === "true", "Modifier devrait être enfoncé");
+    await tel.locator('.morceau[title^="Peinture"]').first().tap();
+    await tel.locator(".editeur").first().waitFor();
+    const bulle = await tel.locator(".bulle-police").boundingBox();
+    verifier(bulle && bulle.x >= 0 && bulle.x + bulle.width <= 390, `la bulle de police sort de l'écran : ${JSON.stringify(bulle)}`);
+    await tel.screenshot({ path: path.join(captures, "telephone-edition.png") });
+    await tel.keyboard.press("Escape");
+    await bas.getByRole("button", { name: "Modifier" }).tap();
+
+    // Chercher.
+    await bas.getByRole("button", { name: "Chercher" }).tap();
+    await tel.getByRole("searchbox", { name: "Rechercher" }).fill("solde");
+    await tel.getByText("1 sur 1").waitFor({ timeout: 10000 });
+    await tel.screenshot({ path: path.join(captures, "telephone-recherche.png") });
+    await bas.getByRole("button", { name: "Chercher" }).tap();
+    verifier(!(await tel.getByRole("search").isVisible()), "Chercher devrait refermer la recherche");
+
+    // Pages : le panneau des miniatures s'ouvre et se referme.
+    await bas.getByRole("button", { name: "Pages" }).tap();
+    await tel.waitForTimeout(300);
+    verifier((await tel.locator(".miniatures").boundingBox()).width > 100, "le panneau des pages ne s'ouvre pas");
+    await tel.screenshot({ path: path.join(captures, "telephone-pages.png") });
+    await bas.getByRole("button", { name: "Pages" }).tap();
+
+    // Plus, puis zoom à deux doigts (événements tactiles réels).
+    await bas.getByRole("button", { name: "Plus" }).tap();
+    const menuPlus = tel.getByRole("menu", { name: "Plus" });
+    await menuPlus.waitFor();
+    await tel.screenshot({ path: path.join(captures, "telephone-plus.png") });
+    await menuPlus.getByRole("menuitem", { name: "Ajuster à la largeur" }).tap();
+    const zoomAvant = await tel.locator(".zoom-valeur").textContent();
+    const cdp = await mobile.newCDPSession(tel);
+    const doigts = (ecart) => [{ x: 195 - ecart, y: 420 }, { x: 195 + ecart, y: 420 }];
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: doigts(40) });
+    for (const e of [60, 80, 100, 120]) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: doigts(e) });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await tel.waitForTimeout(800);
+    const zoomApres = await tel.locator(".zoom-valeur").textContent();
+    verifier(parseInt(zoomApres) > parseInt(zoomAvant) * 2.5, `le pincement devrait tripler le zoom : ${zoomAvant} → ${zoomApres}`);
+    await tel.screenshot({ path: path.join(captures, "telephone-zoom.png") });
+    console.log(`Téléphone : barres, menus, édition, recherche, pages et pincement vérifiés (zoom ${zoomAvant} → ${zoomApres})`);
     await mobile.close();
     console.log(`Bilan de la modification : ${bilan}`);
     console.log(`Recherche « renovation » : ${compte}`);

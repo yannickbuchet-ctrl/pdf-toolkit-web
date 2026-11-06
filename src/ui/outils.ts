@@ -4,7 +4,7 @@
  */
 import type { Application } from "./app";
 import { appel } from "./moteur";
-import { bouton, choisirFichiers, confirmer, demander, el, estPdf, fenetre, lire, pluriel, tailleLisible } from "./dom";
+import { bouton, choisirFichiers, confirmer, demander, el, estPdf, fenetre, lire, menuFlottant, pluriel, tailleLisible } from "./dom";
 import { icone, LOGO } from "./icones";
 import { APPLICATION, AUTEUR, CODE_SOURCE, DATE, DIRECTEUR, MODELE, MUPDF_VERSION, VERSION } from "../version";
 import type { InfoPoliceDocument } from "../moteur/infoPolices";
@@ -61,65 +61,24 @@ export function accueil(app: Application): HTMLElement {
 /* --- Menu « Outils » ------------------------------------------------------------------------------------------------ */
 
 export function menu(app: Application, ancre: HTMLElement) {
-  document.querySelector(".menu-outils")?.remove();
   const ouvert = app.etat !== null;
-  const element = (ic: string, texte: string, action: () => void, actif = true) => {
-    const b = el("button", { type: "button", role: "menuitem", class: "bouton", style: { width: "100%", justifyContent: "flex-start" }, disabled: !actif, html: `${icone(ic)}<span>${texte}</span>` });
-    b.addEventListener("click", () => {
-      fermer();
-      action();
-    });
-    return b;
-  };
-  const m = el("div", {
-    class: "menu-outils", role: "menu", "aria-label": "Outils",
-    style: { position: "fixed", zIndex: "50", background: "var(--surface)", border: "1px solid var(--bord)", borderRadius: "10px", boxShadow: "var(--ombre)", padding: "6px", minWidth: "270px", maxHeight: "80dvh", overflow: "auto" },
-  },
-    element("fusion", "Fusionner des PDF…", () => fusion(app)),
-    element("insererPdf", "Insérer les pages d’un PDF…", () => app.insererPdf(), ouvert),
-    element("pages", "Organiser les pages", () => app.basculerGrille(), ouvert),
-    element("compresser", "Compresser et enregistrer…", () => compresserEtEnregistrer(app), ouvert),
-    element("cadenas", "Mot de passe…", () => motDePasse(app), ouvert),
-    element("police", "Infos sur les polices…", () => infosPolices(app), ouvert),
-    element("liste", "Annotations de la page…", () => listeAnnotations(app), ouvert),
-    el("hr", { style: { border: "none", borderTop: "1px solid var(--bord-doux)", margin: "4px 0" } }),
-    element("photo", "Photos d’identité…", () => photoIdentite(app)),
-    element("photo", "Modifier la planche de photos…", () => modifierPlanche(app), ouvert && !!app.etat?.planche),
-    element("comparer", "Comparer deux PDF…", () => comparer(app)),
-    el("hr", { style: { border: "none", borderTop: "1px solid var(--bord-doux)", margin: "4px 0" } }),
-    element("info", "Propriétés du document…", () => proprietes(app), ouvert),
-    element("fermer", "Fermer le document", () => app.fermerDocument(), ouvert),
-    element("info", "À propos…", () => aPropos()),
-  );
-  const r = ancre.getBoundingClientRect();
-  m.style.top = `${r.bottom + 4}px`;
-  m.style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
-  document.body.append(m);
-  ancre.setAttribute("aria-expanded", "true");
-  const items = [...m.querySelectorAll<HTMLButtonElement>("button:not(:disabled)")];
-  items[0]?.focus();
-  const fermer = () => {
-    m.remove();
-    ancre.setAttribute("aria-expanded", "false");
-    document.removeEventListener("pointerdown", dehors, true);
-  };
-  const dehors = (e: Event) => {
-    if (!m.contains(e.target as Node) && e.target !== ancre && !ancre.contains(e.target as Node)) fermer();
-  };
-  document.addEventListener("pointerdown", dehors, true);
-  m.addEventListener("keydown", (e) => {
-    const i = items.indexOf(document.activeElement as HTMLButtonElement);
-    if (e.key === "Escape") {
-      fermer();
-      ancre.focus();
-    } else if (e.key === "ArrowDown") {
-      e.preventDefault();
-      items[(i + 1) % items.length].focus();
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      items[(i - 1 + items.length) % items.length].focus();
-    } else if (e.key === "Tab") fermer();
-  });
+  menuFlottant(ancre, "Outils", [
+    { icone: "fusion", texte: "Fusionner des PDF…", action: () => fusion(app) },
+    { icone: "insererPdf", texte: "Insérer les pages d’un PDF…", action: () => app.insererPdf(), actif: ouvert },
+    { icone: "pages", texte: "Organiser les pages", action: () => app.basculerGrille(), actif: ouvert },
+    { icone: "compresser", texte: "Compresser et enregistrer…", action: () => compresserEtEnregistrer(app), actif: ouvert },
+    { icone: "cadenas", texte: "Mot de passe…", action: () => motDePasse(app), actif: ouvert },
+    { icone: "police", texte: "Infos sur les polices…", action: () => infosPolices(app), actif: ouvert },
+    { icone: "liste", texte: "Annotations de la page…", action: () => listeAnnotations(app), actif: ouvert },
+    null,
+    { icone: "photo", texte: "Photos d’identité…", action: () => photoIdentite(app) },
+    { icone: "photo", texte: "Modifier la planche de photos…", action: () => modifierPlanche(app), actif: ouvert && !!app.etat?.planche },
+    { icone: "comparer", texte: "Comparer deux PDF…", action: () => comparer(app) },
+    null,
+    { icone: "info", texte: "Propriétés du document…", action: () => proprietes(app), actif: ouvert },
+    { icone: "fermer", texte: "Fermer le document", action: () => app.fermerDocument(), actif: ouvert },
+    { icone: "info", texte: "À propos…", action: () => aPropos() },
+  ]);
 }
 
 /* --- Barre d'options des outils ------------------------------------------------------------------------------------ */

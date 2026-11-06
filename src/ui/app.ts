@@ -2,7 +2,7 @@
  * L'application : barre d'outils, miniatures des pages, document au centre (comme PdfEditor sur PC).
  */
 import { appel, ErreurMoteur, surOccupation } from "./moteur";
-import { bouton, choisirFichiers, confirmer, demander, el, estPdf, fenetre, informer, lire, pluriel, tailleLisible, telecharger } from "./dom";
+import { bouton, choisirFichiers, confirmer, demander, el, estPdf, fenetre, informer, lire, menuFlottant, pluriel, tailleLisible, telecharger } from "./dom";
 import { icone, LOGO } from "./icones";
 import type { EtatDocument } from "../worker";
 import type { Segment } from "../moteur/segments";
@@ -63,6 +63,7 @@ export class Application {
   barre!: HTMLElement;
   sousBarre!: HTMLElement;
   barreRecherche!: HTMLElement;
+  barreMobile!: HTMLElement;
   corps!: HTMLElement;
   miniatures!: HTMLElement;
   listeMiniatures!: HTMLElement;
@@ -113,40 +114,62 @@ export class Application {
     this.valeurZoom.addEventListener("click", () => this.definirZoom(1));
 
     const marque = el("div", { class: "marque", html: `${LOGO}<span>${APPLICATION}</span>` });
+    // Sur téléphone, ces éléments quittent la barre du haut : la barre du bas et ses menus les remplacent.
+    const bureau = <T extends HTMLElement>(e: T) => {
+      e.classList.add("bureau");
+      return e;
+    };
     this.barre = el("nav", { class: "barre", "aria-label": "Barre d'outils" },
       marque,
       b("ouvrir", "ouvrir", "Ouvrir", () => this.ouvrirDialogue(), { raccourci: "Ctrl+O" }),
       b("enregistrer", "enregistrer", "Enregistrer", () => this.enregistrer(false), { raccourci: "Ctrl+S" }),
-      b("enregistrerSous", "telecharger", "Enregistrer sous", () => this.enregistrer(true), { raccourci: "Ctrl+Maj+S", texte: false }),
-      b("imprimer", "imprimer", "Imprimer", () => outils.imprimer(this), { raccourci: "Ctrl+P", texte: false }),
-      el("span", { class: "separateur" }),
+      bureau(b("enregistrerSous", "telecharger", "Enregistrer sous", () => this.enregistrer(true), { raccourci: "Ctrl+Maj+S", texte: false })),
+      bureau(b("imprimer", "imprimer", "Imprimer", () => outils.imprimer(this), { raccourci: "Ctrl+P", texte: false })),
+      el("span", { class: "separateur bureau" }),
       b("annuler", "annuler", "Annuler", () => this.annuler(), { raccourci: "Ctrl+Z", texte: false }),
       b("retablir", "retablir", "Rétablir", () => this.retablir(), { raccourci: "Ctrl+Y", texte: false }),
-      el("span", { class: "separateur" }),
-      b("miniatures", "miniatures", "Miniatures des pages", () => this.basculerMiniatures(), { texte: false, bascule: true }),
-      b("zoomMoins", "moins", "Zoom arrière", () => this.pasZoom(-1), { raccourci: "Ctrl+-", texte: false }),
-      this.valeurZoom,
-      b("zoomPlus", "plus", "Zoom avant", () => this.pasZoom(1), { raccourci: "Ctrl++", texte: false }),
-      b("ajuster", "ajuster", "Ajuster à la largeur", () => this.ajusterLargeur(), { texte: false }),
+      el("span", { class: "separateur bureau" }),
+      bureau(b("miniatures", "miniatures", "Miniatures des pages", () => this.basculerMiniatures(), { texte: false, bascule: true })),
+      bureau(b("zoomMoins", "moins", "Zoom arrière", () => this.pasZoom(-1), { raccourci: "Ctrl+-", texte: false })),
+      bureau(this.valeurZoom),
+      bureau(b("zoomPlus", "plus", "Zoom avant", () => this.pasZoom(1), { raccourci: "Ctrl++", texte: false })),
+      bureau(b("ajuster", "ajuster", "Ajuster à la largeur", () => this.ajusterLargeur(), { texte: false })),
       el("span", { class: "page-nav" },
-        b("precedente", "gauche", "Page précédente", () => this.allerA(this.pageCourante - 1), { texte: false }),
+        bureau(b("precedente", "gauche", "Page précédente", () => this.allerA(this.pageCourante - 1), { texte: false })),
         this.champPage, this.totalPages,
-        b("suivante", "droite", "Page suivante", () => this.allerA(this.pageCourante + 1), { texte: false })),
-      el("span", { class: "separateur" }),
-      b("modeLecture", "selection", "Lire et remplir", () => this.definirMode("lecture"), { texte: false, bascule: true }),
-      b("modeTexte", "texte", "Modifier le texte", () => this.definirMode("texte"), { bascule: true, raccourci: "T" }),
-      b("modeAjout", "ajoutTexte", "Ajouter du texte", () => this.definirMode("ajout"), { texte: false, bascule: true }),
-      b("modeSurligner", "surligner", "Surligner", () => this.definirMode("surligner"), { texte: false, bascule: true }),
-      b("modeNote", "note", "Note", () => this.definirMode("note"), { texte: false, bascule: true }),
-      b("modeDessin", "dessin", "Dessiner", () => this.definirMode("dessin"), { texte: false, bascule: true }),
-      b("signature", "signature", "Signature", () => outils.signature(this), { texte: false }),
-      b("image", "image", "Insérer une image", () => outils.image(this), { texte: false }),
-      el("span", { class: "separateur" }),
-      b("rechercher", "chercher", "Rechercher et remplacer", () => this.afficherRecherche(), { raccourci: "Ctrl+F", texte: false }),
+        bureau(b("suivante", "droite", "Page suivante", () => this.allerA(this.pageCourante + 1), { texte: false }))),
+      el("span", { class: "separateur bureau" }),
+      bureau(b("modeLecture", "selection", "Lire et remplir", () => this.definirMode("lecture"), { texte: false, bascule: true })),
+      bureau(b("modeTexte", "texte", "Modifier le texte", () => this.definirMode("texte"), { bascule: true, raccourci: "T" })),
+      bureau(b("modeAjout", "ajoutTexte", "Ajouter du texte", () => this.definirMode("ajout"), { texte: false, bascule: true })),
+      bureau(b("modeSurligner", "surligner", "Surligner", () => this.definirMode("surligner"), { texte: false, bascule: true })),
+      bureau(b("modeNote", "note", "Note", () => this.definirMode("note"), { texte: false, bascule: true })),
+      bureau(b("modeDessin", "dessin", "Dessiner", () => this.definirMode("dessin"), { texte: false, bascule: true })),
+      bureau(b("signature", "signature", "Signature", () => outils.signature(this), { texte: false })),
+      bureau(b("image", "image", "Insérer une image", () => outils.image(this), { texte: false })),
+      el("span", { class: "separateur bureau" }),
+      bureau(b("rechercher", "chercher", "Rechercher et remplacer", () => this.afficherRecherche(), { raccourci: "Ctrl+F", texte: false })),
       el("span", { class: "espace" }),
       b("outils", "menu", "Outils", (ev) => outils.menu(this, ev.currentTarget as HTMLElement), {}),
     );
     this.boutons.outils.setAttribute("aria-haspopup", "menu");
+
+    // Barre du bas, sous le pouce, sur téléphone seulement (voir le CSS) : les actions de la barre du haut regroupées.
+    const mobile = (cle: string, ic: string, libelle: string, action: (ev: MouseEvent) => void) => {
+      const bt = el("button", { type: "button", class: "bouton", html: `${icone(ic)}<span>${libelle}</span>` });
+      bt.addEventListener("click", action);
+      this.boutons[cle] = bt;
+      return bt;
+    };
+    this.barreMobile = el("nav", { class: "barre-mobile", "aria-label": "Actions du document" },
+      mobile("mPages", "miniatures", "Pages", () => this.basculerMiniatures()),
+      mobile("mTexte", "texte", "Modifier", () => this.definirMode(this.mode === "texte" ? "lecture" : "texte")),
+      mobile("mAnnoter", "dessin", "Annoter", (ev) => this.menuAnnoter(ev.currentTarget as HTMLElement)),
+      mobile("mChercher", "chercher", "Chercher", () => (this.barreRecherche.hidden ? this.afficherRecherche() : this.fermerRecherche())),
+      mobile("mPlus", "menu", "Plus", (ev) => this.menuPlus(ev.currentTarget as HTMLElement)),
+    );
+    this.boutons.mAnnoter.setAttribute("aria-haspopup", "menu");
+    this.boutons.mPlus.setAttribute("aria-haspopup", "menu");
 
     this.sousBarre = el("div", { class: "sous-barre", hidden: true, role: "toolbar", "aria-label": "Options de l'outil" });
     this.barreRecherche = el("div", { class: "sous-barre", hidden: true, role: "search" });
@@ -181,7 +204,8 @@ export class Application {
     this.barreEtat = el("footer", { class: "etat" }, el("span", { class: "attente", hidden: true, "aria-hidden": "true" }), this.messageEtat,
       el("span", { class: "aide", text: "Vos fichiers restent sur cet appareil." }));
 
-    this.racine.append(this.barre, this.sousBarre, this.barreRecherche, this.accueil, this.barreEtat);
+    this.racine.append(this.barre, this.sousBarre, this.barreRecherche, this.accueil, this.barreEtat, this.barreMobile);
+    this.installerPincement();
 
     this.observateur = new IntersectionObserver((entrees) => {
       for (const e of entrees) {
@@ -218,6 +242,11 @@ export class Application {
     }
     this.boutons.miniatures.setAttribute("aria-pressed", String(!this.corps.classList.contains("sans-miniatures")));
     this.boutons.grille.setAttribute("aria-pressed", String(this.corps.classList.contains("grille")));
+    this.barreMobile.hidden = !ouvert;
+    this.boutons.mPages.setAttribute("aria-pressed", String(this.corps.classList.contains("miniatures-ouvertes")));
+    this.boutons.mTexte.setAttribute("aria-pressed", String(ouvert && this.mode === "texte"));
+    this.boutons.mAnnoter.classList.toggle("actif", ouvert && this.mode !== "texte" && this.mode !== "lecture");
+    this.boutons.mChercher.setAttribute("aria-pressed", String(!this.barreRecherche.hidden));
     const sel = this.selection.size > 0;
     for (const k of ["pivoterG", "pivoterD", "monter", "descendre", "supprimerPages", "extraire"]) this.boutons[k].disabled = !ouvert || !sel;
   }
@@ -283,6 +312,7 @@ export class Application {
       this.fichier = { nom: fichier.name, poignee };
       this.modifie = false;
       this.chargerEtat(r.etat, true);
+      if (Application.etroit()) this.ajusterLargeur();
       let msg = `« ${fichier.name} » ouvert : ${pluriel(r.etat.pages.length, "page")}.`;
       if (r.etat.motDePasse) msg += " Il restera protégé par son mot de passe à l’enregistrement.";
       if (r.restrictions) msg += " Ce PDF limitait certains droits (impression, copie…) : ces limites seront retirées à l’enregistrement.";
@@ -300,6 +330,7 @@ export class Application {
     this.fichier = { nom, poignee: null };
     this.modifie = true;
     this.chargerEtat(etat, true);
+    if (Application.etroit()) this.ajusterLargeur();
     if (avaitDocument) this.message(`${libelle[0].toUpperCase() + libelle.slice(1)} : nouveau document « ${nom} » (Ctrl+Z pour revenir au précédent).`, "succes");
   }
 
@@ -591,7 +622,7 @@ export class Application {
   ajusterLargeur() {
     if (!this.etat) return;
     const largeur = Math.max(...this.etat.pages.map((p) => p.largeur));
-    this.definirZoom((this.visionneuse.clientWidth - 48) / (largeur * PX_PAR_POINT));
+    this.definirZoom((this.visionneuse.clientWidth - (Application.etroit() ? 16 : 48)) / (largeur * PX_PAR_POINT));
   }
 
   allerA(index: number, options: { y?: number } = {}) {
@@ -620,11 +651,80 @@ export class Application {
   }
 
   basculerMiniatures() {
-    const etroit = window.matchMedia("(max-width: 700px)").matches;
-    if (etroit) this.corps.classList.toggle("miniatures-ouvertes");
+    if (Application.etroit()) this.corps.classList.toggle("miniatures-ouvertes");
     else this.corps.classList.toggle("sans-miniatures");
     this.corps.classList.remove("grille");
     this.miseAJour();
+  }
+
+  /** Écran de téléphone : la mise en page à barre du bas (même seuil que le CSS). */
+  static etroit(): boolean {
+    return window.matchMedia("(max-width: 700px)").matches;
+  }
+
+  menuAnnoter(ancre: HTMLElement) {
+    const mode = (m: Mode, ic: string, texte: string) => ({ icone: ic, texte, coche: this.mode === m, action: () => this.definirMode(this.mode === m ? "lecture" : m) });
+    menuFlottant(ancre, "Annoter", [
+      mode("lecture", "selection", "Lire et remplir les formulaires"),
+      mode("ajout", "ajoutTexte", "Ajouter du texte"),
+      mode("surligner", "surligner", "Surligner"),
+      mode("note", "note", "Note"),
+      mode("dessin", "dessin", "Dessiner"),
+      null,
+      { icone: "signature", texte: "Signature…", action: () => outils.signature(this) },
+      { icone: "image", texte: "Insérer une image…", action: () => outils.image(this) },
+    ]);
+  }
+
+  menuPlus(ancre: HTMLElement) {
+    menuFlottant(ancre, "Plus", [
+      { icone: "ajuster", texte: "Ajuster à la largeur", action: () => this.ajusterLargeur() },
+      { icone: "plus", texte: "Zoom avant", action: () => this.pasZoom(1) },
+      { icone: "moins", texte: "Zoom arrière", action: () => this.pasZoom(-1) },
+      null,
+      { icone: "telecharger", texte: "Enregistrer sous…", action: () => this.enregistrer(true) },
+      { icone: "imprimer", texte: "Imprimer…", action: () => outils.imprimer(this) },
+    ]);
+  }
+
+  /**
+   * Zoom à deux doigts dans le document. Pendant le geste, les pages sont seulement agrandies à l'écran (transformation
+   * CSS, fluide) ; au lever des doigts, elles sont redessinées nettes au nouveau zoom, autour du point pincé.
+   */
+  installerPincement() {
+    const v = this.visionneuse;
+    let depart: { distance: number; zoom: number; x: number; y: number } | null = null;
+    let facteur = 1;
+    const mesure = (t: TouchList) => {
+      const [a, b] = [t[0], t[1]];
+      return { distance: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
+    };
+    v.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 2 || !this.etat) return;
+      const m = mesure(e.touches);
+      depart = { distance: Math.max(1, m.distance), zoom: this.zoom, x: m.x, y: m.y };
+      facteur = 1;
+      const r = this.conteneurPages.getBoundingClientRect();
+      this.conteneurPages.style.transformOrigin = `${m.x - r.left}px ${m.y - r.top}px`;
+    }, { passive: true });
+    v.addEventListener("touchmove", (e) => {
+      if (!depart || e.touches.length !== 2) return;
+      e.preventDefault(); // ni défilement ni zoom de toute la page pendant le geste
+      const m = mesure(e.touches);
+      facteur = Math.max(0.1 / depart.zoom, Math.min(6 / depart.zoom, m.distance / depart.distance));
+      this.conteneurPages.style.transform = `scale(${facteur})`;
+    }, { passive: false });
+    const fin = () => {
+      if (!depart) return;
+      const d = depart;
+      depart = null;
+      this.conteneurPages.style.transform = "";
+      if (Math.abs(facteur - 1) > 0.02) this.definirZoom(d.zoom * facteur, { clientX: d.x, clientY: d.y });
+    };
+    v.addEventListener("touchend", (e) => {
+      if (e.touches.length < 2) fin();
+    });
+    v.addEventListener("touchcancel", fin);
   }
 
   basculerGrille() {
@@ -867,12 +967,14 @@ export class Application {
     }
     outils.sousBarre(this);
     this.miseAJour();
+    const tactile = window.matchMedia("(pointer: coarse)").matches;
+    const geste = tactile ? "Touchez" : "Cliquez";
     const aides: Record<Mode, string> = {
       lecture: "",
-      texte: "Cliquez sur un texte pour le modifier. Entrée valide, Échap annule.",
-      ajout: "Cliquez à l’endroit où ajouter du texte.",
+      texte: tactile ? "Touchez un texte pour le modifier." : "Cliquez sur un texte pour le modifier. Entrée valide, Échap annule.",
+      ajout: `${geste} à l’endroit où ajouter du texte.`,
       surligner: "Glissez sur le texte à surligner, souligner ou barrer.",
-      note: "Cliquez à l’endroit où poser la note.",
+      note: `${geste} à l’endroit où poser la note.`,
       dessin: "Dessinez sur la page ; chaque trait devient une annotation.",
     };
     if (aides[mode]) this.message(aides[mode], "info", 6000);
@@ -1019,6 +1121,11 @@ export class Application {
     infos.addEventListener("click", () => outils.infosPolices(this, seg.police));
     bulle.append(infos);
     vue.calque.append(champ, bulle);
+    // La bulle reste dans la page, même sur un écran étroit (elle passe alors sur deux lignes).
+    const largeurPage = vue.calque.clientWidth;
+    bulle.style.maxWidth = `${Math.max(120, largeurPage - 8)}px`;
+    const depasse = seg.x0 * s + bulle.offsetWidth - (largeurPage - 4);
+    if (depasse > 0) bulle.style.left = `${Math.max(4, seg.x0 * s - depasse)}px`;
     let fini = false;
     const fermer = () => {
       fini = true;
@@ -1176,6 +1283,7 @@ export class Application {
         bouton("fermer", "Fermer la recherche", () => this.fermerRecherche(), { texte: false }),
       );
       this.barreRecherche.hidden = false;
+      this.miseAJour();
     }
     (remplacer ? this.champRemplacement : this.champRecherche)!.focus();
     this.champRecherche!.select();
@@ -1186,6 +1294,7 @@ export class Application {
     this.occurrences = [];
     this.occurrenceCourante = -1;
     this.vues.forEach((v) => this.dessinerOccurrences(v));
+    this.miseAJour();
   }
 
   async lancerRecherche(reinitialiser = false) {
