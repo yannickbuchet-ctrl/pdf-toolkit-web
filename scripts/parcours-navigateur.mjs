@@ -145,6 +145,19 @@ try {
     await page.waitForTimeout(1200);
     await page.screenshot({ path: path.join(captures, "comparaison.png") });
     const differences = await dialogue.locator(".difference").count();
+    // Inverser : le document ouvert (qui contient « complète », ajouté) devient la nouvelle version.
+    const avant = await dialogue.locator(".differences").innerText();
+    if (!/Suppression[\s\S]*complète/.test(avant)) throw new Error(`Avant inversion, « complète » devrait être supprimé : ${avant}`);
+    await dialogue.getByRole("button", { name: "⇄ Inverser" }).click();
+    await dialogue.getByText("Versions inversées").waitFor();
+    if (await dialogue.locator(".difference").count()) throw new Error("L'ancien résultat devrait être effacé après l'inversion.");
+    await dialogue.getByRole("button", { name: "Comparer", exact: true }).click();
+    await dialogue.locator(".difference").first().waitFor({ timeout: 30000 });
+    const apres = await dialogue.locator(".differences").innerText();
+    if (!/Ajout[\s\S]*complète/.test(apres) || !/250[\s\S]*900/.test(apres)) throw new Error(`Après inversion : ${apres}`);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(captures, "comparaison-inversee.png") });
+    console.log("Inversion des versions : « complète » devient un ajout, « 250 » → « 900 »");
     await page.keyboard.press("Escape");
 
     // Photos d'identité : une photo d'essai (dégradé et visage stylisé), puis la planche.

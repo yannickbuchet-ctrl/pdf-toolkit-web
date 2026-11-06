@@ -20,7 +20,28 @@ const BANDE = 30; // écart (en pages) cherché autour de la diagonale pour appa
 const VIGNETTE: [number, number] = [24, 34];
 const PART_NOUVELLE = 0.9; // part de mots nouveaux au-delà de laquelle une page sans équivalent est « ajoutée »
 const EXTRAIT = 80;
-const MOTS_MAX = 2e7; // au-delà de ce produit des nombres de mots, un bloc n'est pas comparé mot à mot
+const MOTS_MAX = 2e7; // au-delà de ce produit des nombres de mots, un bloc de textes sans rapport n'est pas comparé mot à mot
+const SIMILITUDE_MIN = 0.5; // part de suites de trois mots communes à partir de laquelle un bloc immense est comparé mot à mot
+
+/**
+ * Nombre de suites de trois mots consécutifs communes aux deux textes (intersection des multiensembles). Un même texte
+ * coupé autrement en lignes les garde presque toutes ; deux textes différents écrits avec le même vocabulaire (deux
+ * contrats, par exemple) n'en partagent presque aucune, alors qu'ils ont presque tous leurs mots en commun.
+ */
+function motsCommuns(a: { 3: string }[], b: { 3: string }[]): number {
+  const triplet = (l: { 3: string }[], i: number) => `${l[i][3]}\u0000${l[i + 1][3]}\u0000${l[i + 2][3]}`;
+  const compte = new Map<string, number>();
+  for (let i = 0; i + 2 < a.length; i++) compte.set(triplet(a, i), (compte.get(triplet(a, i)) ?? 0) + 1);
+  let communs = 0;
+  for (let i = 0; i + 2 < b.length; i++) {
+    const n = compte.get(triplet(b, i)) ?? 0;
+    if (n > 0) {
+      communs++;
+      compte.set(triplet(b, i), n - 1);
+    }
+  }
+  return communs;
+}
 
 const union = (a: Rect, b: Rect): Rect => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
 const intersection = (a: Rect, b: Rect): Rect => [Math.max(a[0], b[0]), Math.max(a[1], b[1]), Math.min(a[2], b[2]), Math.min(a[3], b[3])];
@@ -275,9 +296,11 @@ export function differencesTexte(pagesA: [Rect, string, string, string][][], pag
     const partB = j2 > j1 ? motsB.slice(lignesB[j1][0], lignesB[j2 - 1][1]) : [];
     fait++;
     progression(fait / Math.max(1, blocs));
-    if (partA.length * partB.length > MOTS_MAX) {
-      // Bloc immense (documents sans rapport) : la comparaison mot à mot prendrait des minutes et ne dirait rien de
-      // plus. Tout le texte du bloc est déclaré supprimé d'un côté et ajouté de l'autre, page par page.
+    if (partA.length * partB.length > MOTS_MAX && motsCommuns(partA, partB) < SIMILITUDE_MIN * Math.max(partA.length, partB.length)) {
+      // Bloc immense de textes sans rapport : la comparaison mot à mot prendrait des minutes et ne dirait rien de
+      // plus. Tout le texte du bloc est déclaré supprimé d'un côté et ajouté de l'autre, page par page. Un même texte
+      // dont seules les lignes sont coupées autrement forme aussi un bloc immense, mais ses mots sont presque tous
+      // communs : il est comparé mot à mot (c'est rapide, les suites identiques sont longues) et ne donne rien.
       const parPage = (mots: Mot[]) => [...new Set(mots.map((w) => w[0]))].map((p) => mots.filter((w) => w[0] === p));
       for (const m of parPage(partA)) elements.push(element("suppression", m, []));
       for (const m of parPage(partB)) elements.push(element("ajout", [], m));

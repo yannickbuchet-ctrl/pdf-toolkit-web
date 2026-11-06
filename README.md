@@ -53,7 +53,8 @@ Windows, avec le même moteur : MuPDF.
   de transmettre le fichier.
 - **Comparer deux PDF** : les deux versions côte à côte, avec les différences surlignées : mots ajoutés en vert,
   supprimés en rouge, modifiés en orange, et images, dessins, couleurs ou mise en page changés encadrés en violet. Les
-  pages ajoutées ou supprimées sont repérées sans décaler la suite. La liste des différences mène à chacune (F3 et
+  pages ajoutées ou supprimées sont repérées sans décaler la suite. Les différences se lisent de l'ancienne version
+  (A) vers la nouvelle (B) ; le document ouvert est proposé comme version A, et « Inverser » échange les deux. La liste des différences mène à chacune (F3 et
   Maj+F3). Options : ignorer les majuscules, la ponctuation, comparer le texte seul ou l'aspect seul, tolérance
   visuelle. Un rapport PDF des différences peut être enregistré.
 - **Annuler et rétablir** chaque opération (Ctrl+Z, Ctrl+Y), zoom (Ctrl + molette), aller à une page (Ctrl+G).
@@ -94,9 +95,10 @@ Un navigateur protège votre ordinateur : un site ne peut pas tout faire. Voici 
   retirées à l'enregistrement, un message le signale.
 - **Taille** : tout le document est en mémoire, et chaque opération annulable en garde une copie (au plus 50 copies
   et 400 Mo). Avec un très gros PDF sur un téléphone, la mémoire peut manquer.
-- **Comparaison de documents sans rapport** : quand deux PDF n'ont presque rien en commun, le texte d'un très grand
-  bloc n'est pas comparé mot à mot (cela prendrait des minutes) : il est signalé comme supprimé et ajouté, page par
-  page.
+- **Comparaison de documents sans rapport** : quand deux PDF n'ont presque aucune suite de mots en commun, le texte
+  d'un très grand bloc n'est pas comparé mot à mot (cela prendrait des minutes) : il est signalé comme supprimé et
+  ajouté, page par page. Un même texte simplement coupé autrement en lignes, lui, est toujours comparé mot à mot.
+- **Comparaison en cours** : elle ne peut pas être interrompue.
 
 ## Navigateurs pris en charge
 

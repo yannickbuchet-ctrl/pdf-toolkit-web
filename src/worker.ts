@@ -378,6 +378,13 @@ const methodes = {
     return { pages: taillesDesPages(d) };
   },
 
+  /** Échange les versions A et B : l'ancienne devient la nouvelle, et inversement. */
+  inverserComparaison() {
+    [comparaison.a, comparaison.b] = [comparaison.b, comparaison.a];
+    comparaison.resultat = null;
+    return null;
+  },
+
   comparer(a: { options: Options }, progression: Progression) {
     if (!comparaison.a || !comparaison.b) throw new Error("Choisissez les deux versions à comparer.");
     comparaison.resultat = comparer(comparaison.a.doc, comparaison.b.doc, a.options, progression);

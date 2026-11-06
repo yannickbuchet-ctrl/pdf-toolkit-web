@@ -39,7 +39,14 @@ export async function vueComparaison(app: Application) {
   const zoneVersion = (cote: "a" | "b") => {
     const nom = el("span", { class: "nom", text: "Aucun fichier" });
     const choisir = el("button", { type: "button", class: "bouton cadre", text: "Choisir un PDF…" });
-    const zone = el("div", { class: "version" }, el("strong", { text: `Version ${cote.toUpperCase()}` }), nom, choisir);
+    // Comme sur PC : les différences se lisent de l'ancienne version vers la nouvelle (un mot présent seulement dans
+    // la nouvelle est un ajout). Les libellés le disent, et « Inverser » échange les deux.
+    const titre = cote === "a" ? "Version A (ancienne)" : "Version B (nouvelle)";
+    const zone = el("div", { class: "version" }, el("strong", { text: titre }), nom, choisir);
+    const afficherNom = () => {
+      const v = versions[cote];
+      nom.textContent = v ? `${v.nom} — ${pluriel(v.pages.length, "page")}` : "Aucun fichier";
+    };
     const charger = async (fichier: File | null) => {
       try {
         let r: { pages: Version["pages"] } | null;
@@ -55,7 +62,7 @@ export async function vueComparaison(app: Application) {
         }
         if (!r) return;
         versions[cote] = { nom: n, pages: r.pages };
-        nom.textContent = `${n} — ${pluriel(r.pages.length, "page")}`;
+        afficherNom();
         lancer.disabled = !(versions.a && versions.b);
         resultat = null;
         rapport.disabled = true;
@@ -74,9 +81,22 @@ export async function vueComparaison(app: Application) {
       const fi = [...(e.dataTransfer?.files ?? [])].find(estPdf);
       if (fi) charger(fi);
     });
-    return { zone, charger };
+    return { zone, charger, afficherNom };
   };
   const za = zoneVersion("a"), zb = zoneVersion("b");
+  const inverser = el("button", { type: "button", class: "bouton cadre", text: "⇄ Inverser", title: "Échanger l’ancienne et la nouvelle version" });
+  inverser.addEventListener("click", async () => {
+    await appel("inverserComparaison");
+    [versions.a, versions.b] = [versions.b, versions.a];
+    za.afficherNom();
+    zb.afficherNom();
+    resultat = null;
+    courant = -1;
+    rapport.disabled = true;
+    liste.replaceChildren();
+    cote.replaceChildren();
+    etat.textContent = "Versions inversées : relancez la comparaison.";
+  });
 
   const liste = el("nav", { class: "differences", "aria-label": "Liste des différences" });
   const cote = el("div", { class: "cote-a-cote", tabindex: "-1" });
@@ -87,7 +107,7 @@ export async function vueComparaison(app: Application) {
       el("label", {}, "Comparer :", mode), el("label", {}, casse, "Ignorer les majuscules"), el("label", {}, ponctuation, "Ignorer la ponctuation"),
       el("label", { class: "curseur" }, "Tolérance visuelle", tolerance, valeurTolerance),
       lancer, rapport, el("span", { style: { flex: "1", minWidth: "120px" } }, progression, etat), legende),
-    el("div", { class: "versions" }, za.zone, zb.zone),
+    el("div", { class: "versions" }, za.zone, inverser, zb.zone),
     el("div", { class: "resultats" }, liste, cote)));
 
   if (app.etat) await za.charger(null);
