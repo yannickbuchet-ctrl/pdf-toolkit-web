@@ -181,8 +181,7 @@ export class Application {
     this.barreEtat = el("footer", { class: "etat" }, el("span", { class: "attente", hidden: true, "aria-hidden": "true" }), this.messageEtat,
       el("span", { class: "aide", text: "Vos fichiers restent sur cet appareil." }));
 
-    const zone = el("div", { style: { display: "contents" } }, this.sousBarre, this.barreRecherche);
-    this.racine.append(this.barre, zone, this.accueil, this.barreEtat);
+    this.racine.append(this.barre, this.sousBarre, this.barreRecherche, this.accueil, this.barreEtat);
 
     this.observateur = new IntersectionObserver((entrees) => {
       for (const e of entrees) {
