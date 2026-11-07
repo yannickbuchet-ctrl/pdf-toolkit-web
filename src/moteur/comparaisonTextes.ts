@@ -17,6 +17,9 @@ export const TYPES_TEXTE: Type[] = ["ajout", "suppression", "modification"];
 export const TYPES_PAGE: Type[] = ["page_ajoutee", "page_supprimee", "mise_en_page"];
 export const MODES = { both: "Texte et visuel", text: "Texte seul", visual: "Visuel seul" } as const;
 export type Mode = keyof typeof MODES;
+/** Réglages de la comparaison visuelle, avec leur tolérance (en %) : « plan » regarde plus finement (zones fines). */
+export const REGLAGES = { document: ["Document", 10], plan: ["Plan technique (circuit, dessin)", 5] } as const;
+export type Reglage = keyof typeof REGLAGES;
 
 export interface Options {
   mode: Mode;
@@ -24,6 +27,8 @@ export interface Options {
   ignorerPonctuation: boolean;
   /** Tolérance de la comparaison visuelle, de 0 à 1. */
   tolerance: number;
+  /** Réglage choisi (« document » par défaut). */
+  reglage?: Reglage;
 }
 
 /** Un mot : page, rectangle affiché, texte, clé de comparaison, ligne. */
@@ -54,6 +59,8 @@ export interface Resultat {
   texte: boolean;
   visuel: boolean;
   options: Options;
+  /** Nom de chaque page de A et de B (couche de circuit imprimé, étiquette de page), ou "". */
+  noms: [string[], string[]];
 }
 
 /** Nombre de différences par type, dans l'ordre de TYPES. */
@@ -76,8 +83,29 @@ export function description(e: Difference): string {
   return e.detail ?? "";
 }
 
-export function titrePaire([a, b]: [number | null, number | null]): string {
-  if (a === null) return `Page ${b! + 1} de B (sans équivalent dans A)`;
-  if (b === null) return `Page ${a + 1} de A (sans équivalent dans B)`;
-  return `Page ${a + 1} de A ↔ page ${b + 1} de B`;
+/** Nom d'un couple de pages : celui de la couche, commun ou « A / B » s'ils diffèrent, ou "". */
+export function nomPaire([a, b]: [number | null, number | null], noms?: [string[], string[]]): string {
+  const na = noms && a !== null ? noms[0][a] ?? "" : "";
+  const nb = noms && b !== null ? noms[1][b] ?? "" : "";
+  return na === nb || !nb ? na : !na ? nb : `${na} / ${nb}`;
+}
+
+/** Titre d'un couple de pages, précédé du nom de la couche quand il est connu (« B.Cu — Page 2 de A ↔ page 2 de B »). */
+export function titrePaire(paire: [number | null, number | null], noms?: [string[], string[]]): string {
+  const [a, b] = paire;
+  const nom = nomPaire(paire, noms);
+  const prefixe = nom ? `${nom} — ` : "";
+  if (a === null) return `${prefixe}Page ${b! + 1} de B (sans équivalent dans A)`;
+  if (b === null) return `${prefixe}Page ${a + 1} de A (sans équivalent dans B)`;
+  return `${prefixe}Page ${a + 1} de A ↔ page ${b + 1} de B`;
+}
+
+/** Points PDF en millimètres, à la française : « 12,3 ». */
+export function millimetres(points: number): string {
+  return ((points * 25.4) / 72).toFixed(1).replace(".", ",").replace(/^-0,0$/, "0,0");
+}
+
+/** Description d'un changement visuel : sa taille et sa position, en mm depuis le coin haut gauche de la page. */
+export function detailVisuel([x0, y0, x1, y1]: Rect): string {
+  return `zone de ${millimetres(x1 - x0)} × ${millimetres(y1 - y0)} mm à x ${millimetres(x0)} mm, y ${millimetres(y0)} mm (image, dessin, couleur ou mise en page)`;
 }

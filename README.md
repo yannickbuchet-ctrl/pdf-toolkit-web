@@ -52,11 +52,21 @@ Windows, avec le même moteur : MuPDF.
   au PDF pour modifier la planche plus tard (« Outils → Modifier la planche de photos ») : décochez cette option avant
   de transmettre le fichier.
 - **Comparer deux PDF** : les deux versions côte à côte, avec les différences surlignées : mots ajoutés en vert,
-  supprimés en rouge, modifiés en orange, et images, dessins, couleurs ou mise en page changés encadrés en violet. Les
-  pages ajoutées ou supprimées sont repérées sans décaler la suite. Les différences se lisent de l'ancienne version
-  (A) vers la nouvelle (B) ; le document ouvert est proposé comme version A, et « Inverser » échange les deux. La liste des différences mène à chacune (F3 et
-  Maj+F3). Options : ignorer les majuscules, la ponctuation, comparer le texte seul ou l'aspect seul, tolérance
-  visuelle. Un rapport PDF des différences peut être enregistré.
+  supprimés en rouge, modifiés en orange, et images, dessins, couleurs ou mise en page changés encadrés en violet, avec
+  leur taille et leur position en millimètres (« zone de 0,7 × 1,4 mm à x 93,1 mm, y 50,8 mm »). Les pages ajoutées ou
+  supprimées sont repérées sans décaler la suite. Les différences se lisent de l'ancienne version (A) vers la nouvelle
+  (B) ; le document ouvert est proposé comme version A, et « Inverser » échange les deux. La liste des différences mène
+  à chacune (F3 et Maj+F3). Options : ignorer les majuscules, la ponctuation, comparer le texte seul ou l'aspect seul,
+  tolérance visuelle.
+  - **Affichage « Superposées »** : chaque page de A et sa page de B en une seule image, où ce qui n'est que dans A
+    apparaît en rouge, ce qui n'est que dans B en vert, et ce qui est identique en noir. C'est l'affichage proposé sur
+    téléphone, où les options et les fichiers se replient après la comparaison (bouton « Options et fichiers »).
+  - **Réglage « Plan technique (circuit, dessin) »**, pour les plans et les circuits imprimés (couches Gerber imprimées
+    en PDF) : rendu deux fois plus fin, tolérance de 5 %, et des zones distinctes pour deux détails qui ne se touchent
+    pas (un via et la piste voisine), jusqu'à 150 par page. Le nom de chaque couche (F.Cu, B.Cu, In1.Cu, F.Silkscreen,
+    Perçages, Top Layer…), lu dans le texte de la page ou dans son étiquette, précède le numéro des pages.
+  - **Rapport PDF** : synthèse, liste numérotée, pages A et B annotées, puis un gros plan de chaque différence (jusqu'à
+    150) : la zone et ses abords dans A, dans B et superposés, avec sa position en millimètres.
 - **Annuler et rétablir** chaque opération (Ctrl+Z, Ctrl+Y), zoom (Ctrl + molette), aller à une page (Ctrl+G).
 - Interface utilisable au clavier, sur tablette et sur téléphone, en mode clair ou sombre selon votre système.
 
@@ -99,6 +109,11 @@ Un navigateur protège votre ordinateur : un site ne peut pas tout faire. Voici 
   d'un très grand bloc n'est pas comparé mot à mot (cela prendrait des minutes) : il est signalé comme supprimé et
   ajouté, page par page. Un même texte simplement coupé autrement en lignes, lui, est toujours comparé mot à mot.
 - **Comparaison en cours** : elle ne peut pas être interrompue.
+- **Comparaison superposée** : elle s'affiche une fois la comparaison faite (sous Windows, dès l'ouverture des deux
+  fichiers). Une page présente dans une seule version y est montrée seule, au lieu d'être omise.
+- **Rapport de comparaison** : il est écrit en Helvetica, la police standard des PDF, au lieu d'Arial : les flèches y
+  deviennent « -> » et « <-> ». Les gros plans de A et de B reprennent la page en vectoriel, comme sous Windows ; la
+  superposition est une image.
 
 ## Navigateurs pris en charge
 
@@ -165,6 +180,13 @@ Les tests créent leurs propres PDF (aucun document personnel n'est utilisé) et
 modification du texte (police standard, police intégrée complète, police réduite, TrueType, accents, page pivotée),
 pages, fusion, mots de passe, compression, formulaires, annotations, recherche, dimensions exactes des photos
 d'identité et lecture sûre de leurs réglages, comparaison et rapport.
+
+Si le dossier `Exemples Gerber` existe à côté du projet (deux révisions d'une carte de circuit imprimé, avec la liste
+des modifications faites), `tests/comparaison-gerber.test.ts` compare les deux cartes A4 et vérifie que chaque
+modification est trouvée, sur chacune de ses pages, sans fausse alerte (réglage « Plan technique » : 24 différences,
+aucune manquée ; réglage « Document » : seul le perçage agrandi de 0,05 mm échappe), ainsi que les noms des couches,
+la superposition et les gros plans du rapport. Le parcours dans le navigateur compare aussi ces cartes, sur ordinateur
+et sur téléphone. Sans ce dossier, ces essais sont sautés.
 
 ### Construire
 

@@ -1,5 +1,6 @@
 // Parcours dans un vrai navigateur (Chromium sans fenêtre, par Playwright) du site construit : ouvrir un PDF, modifier un
-// texte, enregistrer, puis vérifier le fichier téléchargé. Captures d'écran dans captures/.
+// texte, enregistrer, puis vérifier le fichier téléchargé ; comparer deux révisions d'une carte de circuit imprimé, sur
+// ordinateur et sur téléphone. Captures d'écran dans captures/.
 // Lancer après « npm run build » : node scripts/parcours-navigateur.mjs
 import { chromium } from "playwright";
 import { spawn } from "node:child_process";
@@ -34,6 +35,123 @@ function exemple() {
   ];
   for (const contenu of pages) doc.insertPage(-1, doc.addPage([0, 0, 595, 842], 0, { Font: { H: helv, G: gras, T: times } }, contenu));
   return doc.saveToBuffer("garbage=2,compress").asUint8Array().slice();
+}
+
+// Les deux révisions d'une carte de circuit imprimé (dossier « Exemples Gerber » à côté du projet), si elles existent.
+const GERBER = path.resolve(racine, "..", "Exemples Gerber");
+const cartes = fs.existsSync(path.join(GERBER, "carte-a4-revA.pdf"))
+  ? ["carte-a4-revA.pdf", "carte-a4-revB.pdf"].map((n) => [...fs.readFileSync(path.join(GERBER, n))])
+  : null;
+
+/**
+ * Comparaison des cartes A4 dans la fenêtre « Comparer deux PDF » déjà ouverte : réglage « Plan technique », côte à
+ * côte puis superposées, navigation par F3, et (sur ordinateur) le rapport PDF. Captures prefixe-*.png. Sur téléphone,
+ * renvoie le plus long gel du fil principal pendant le calcul.
+ */
+async function comparerCartes(page, dialogue, prefixe, telephone) {
+  const verifier = (condition, message) => {
+    if (!condition) throw new Error(`Cartes (${prefixe}) : ${message}`);
+  };
+  for (const [k, nom] of [[0, "carte-a4-revA.pdf"], [1, "carte-a4-revB.pdf"]]) {
+    await page.evaluate(([o, nom, k]) => {
+      const f = new File([new Uint8Array(o)], nom, { type: "application/pdf" });
+      const dt = new DataTransfer();
+      dt.items.add(f);
+      document.querySelectorAll(".version")[k].dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
+    }, [cartes[k], nom, k]);
+    await dialogue.getByText(`${nom} — 6 pages`).waitFor();
+  }
+  await dialogue.getByRole("combobox", { name: "Réglage de la comparaison" }).selectOption("plan");
+  verifier((await dialogue.locator(".curseur output").textContent()) === "5 %", "la tolérance devrait passer à 5 %");
+  const affichage = dialogue.getByRole("combobox", { name: "Affichage des deux versions" });
+  verifier((await affichage.inputValue()) === (telephone ? "superposees" : "cote"), `affichage par défaut inattendu : ${await affichage.inputValue()}`);
+  // Pendant le calcul (dans le Worker), l'interface doit rester fluide : plus long intervalle entre deux images.
+  await page.evaluate(() => {
+    window.__gel = 0;
+    window.__fin = false;
+    let t = performance.now();
+    const tic = () => {
+      const n = performance.now();
+      window.__gel = Math.max(window.__gel, n - t);
+      t = n;
+      if (!window.__fin) requestAnimationFrame(tic);
+    };
+    requestAnimationFrame(tic);
+  });
+  const debut = Date.now();
+  await dialogue.getByRole("button", { name: "Comparer", exact: true }).click();
+  await dialogue.getByText("24 différences", { exact: true }).waitFor({ timeout: 60000 });
+  const duree = Date.now() - debut;
+  const gel = await page.evaluate(() => ((window.__fin = true), window.__gel));
+  const liste = await dialogue.locator(".differences").innerText();
+  for (const couche of ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu", "F.Silkscreen", "Perçages"]) verifier(liste.includes(`${couche} — Page`), `couche ${couche} absente de la liste`);
+  verifier(liste.includes("B.Cu — Page 4 de A ↔ page 4 de B"), "titre de couple de pages B.Cu");
+  verifier(/zone de \d+,\d × \d+,\d mm à x \d+,\d mm, y \d+,\d mm/.test(liste), "libellé en mm des changements visuels");
+  await page.waitForTimeout(1500);
+  if (!telephone) {
+    verifier((await dialogue.locator(".paire:not(.superposee) .page-comparee").count()) === 12, "côte à côte : 12 pages attendues");
+    await page.screenshot({ path: path.join(captures, `${prefixe}-cote-a-cote.png`) });
+    await affichage.selectOption("superposees");
+  }
+  verifier((await dialogue.locator(".paire.superposee .page-comparee").count()) === 6, "superposées : 6 pages attendues");
+  if (telephone) {
+    // Les options et les fichiers se replient pour laisser la place aux pages ; « Options et fichiers » les rouvre.
+    const plier = dialogue.getByRole("button", { name: "Options et fichiers" });
+    verifier(!(await dialogue.locator(".versions").isVisible()) && (await plier.getAttribute("aria-expanded")) === "false", "les options devraient être repliées");
+    await plier.tap();
+    verifier(await dialogue.locator(".versions").isVisible(), "« Options et fichiers » devrait rouvrir les options");
+    await page.screenshot({ path: path.join(captures, `${prefixe}-options.png`) });
+    await plier.tap();
+    const vue = await dialogue.locator(".cote-a-cote").boundingBox();
+    verifier(vue.height > 300, `vue des pages trop petite : ${JSON.stringify(vue)}`);
+  }
+  const legende = await dialogue.locator(".legende").innerText();
+  verifier(legende.includes("seulement dans A") && legende.includes("seulement dans B") && legende.includes("identique"), `légende : ${legende}`);
+  // Aller par F3 à la différence de la couche In2.Cu (la séparation 3,3 V / 5 V déplacée), puis Maj+F3 et F3.
+  const etat = dialogue.locator(".reglages .aide");
+  for (let k = 0; k < 30 && !/zone de 32,5/.test(await etat.textContent()); k++) await page.keyboard.press("F3");
+  verifier(/Différence \d+ sur 24 : Changement visuel — zone de 32,5/.test(await etat.textContent()), `F3 : ${await etat.textContent()}`);
+  await page.keyboard.press("Shift+F3");
+  const precedente = await etat.textContent();
+  await page.keyboard.press("F3");
+  verifier(/zone de 32,5/.test(await etat.textContent()) && precedente !== (await etat.textContent()), "Maj+F3 puis F3");
+  await page.waitForTimeout(1500);
+  // La superposition est rendue : du rouge (seulement dans A) et du vert (seulement dans B) sur la page In2.Cu.
+  const mesure = await page.evaluate(() => {
+    const section = [...document.querySelectorAll(".paire.superposee")].find((s) => s.getAttribute("aria-label").startsWith("In2.Cu"));
+    const c = section.querySelector("canvas");
+    const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+    let rouge = 0, vert = 0, noir = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i] > 200 && d[i + 1] < 60 && d[i + 2] < 60) rouge++;
+      else if (d[i + 1] > 150 && d[i] < 60 && d[i + 2] < 60) vert++;
+      else if (d[i] < 60 && d[i + 1] < 60 && d[i + 2] < 60) noir++;
+    }
+    const actif = document.querySelector(".marque-diff.actif").getBoundingClientRect();
+    const vue = document.querySelector(".cote-a-cote");
+    return { largeur: c.width, rouge, vert, noir, actif: [actif.left, actif.top, actif.right, actif.bottom], ecran: [innerWidth, innerHeight],
+      deborde: vue.scrollWidth - vue.clientWidth };
+  });
+  verifier(mesure.largeur > 100 && mesure.rouge > 50 && mesure.vert > 50 && mesure.noir > 1000, `superposition In2.Cu : ${JSON.stringify(mesure)}`);
+  verifier(mesure.actif[3] > 0 && mesure.actif[1] < mesure.ecran[1], `la différence choisie n'est pas à l'écran : ${JSON.stringify(mesure)}`);
+  verifier(mesure.deborde <= 1, `défilement horizontal de la vue : ${mesure.deborde} px`);
+  await page.screenshot({ path: path.join(captures, `${prefixe}-superposees.png`) });
+  let rapport = "";
+  if (!telephone) {
+    const [telechargement] = await Promise.all([page.waitForEvent("download"), dialogue.getByRole("button", { name: "Rapport PDF" }).click()]);
+    const fichier = path.join(racine, "dist", "parcours-rapport-cartes.pdf");
+    await telechargement.saveAs(fichier);
+    const doc = mupdf.Document.openDocument(fs.readFileSync(fichier), "application/pdf");
+    const textes = [...Array(doc.countPages()).keys()].map((i) => doc.loadPage(i).toStructuredText().asText());
+    verifier(textes[0].includes("réglage plan technique (zones fines)"), "options du rapport");
+    const gros = textes.filter((t) => t.includes("Gros plans des différences")).length;
+    verifier(gros === 8, `pages de gros plans : ${gros}`);
+    verifier(!textes.join("").includes(" "), "espaces insécables dans le rapport");
+    rapport = `, rapport de ${doc.countPages()} pages dont ${gros} de gros plans`;
+  }
+  console.log(`Cartes A4 (${prefixe}) : 24 différences en ${duree} ms, plus long gel de l'interface ${Math.round(gel)} ms, ` +
+    `superposition In2.Cu ${mesure.rouge} px rouges, ${mesure.vert} px verts${rapport}`);
+  return gel;
 }
 
 const serveur = spawn(process.execPath, [path.join(racine, "node_modules/vite/bin/vite.js"), "preview", "--port", String(PORT), "--strictPort"], { cwd: racine, stdio: "pipe" });
@@ -159,6 +277,10 @@ try {
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(captures, "comparaison-inversee.png") });
     console.log("Inversion des versions : « complète » devient un ajout, « 250 » → « 900 »");
+    if (cartes) {
+      const gel = await comparerCartes(page, dialogue, "comparaison-cartes", false);
+      if (gel > 500) throw new Error(`L'interface a gelé ${Math.round(gel)} ms pendant la comparaison des cartes.`);
+    } else console.log("Exemples Gerber absents : comparaison des cartes non essayée.");
     await page.keyboard.press("Escape");
 
     // Photos d'identité : une photo d'essai (dégradé et visage stylisé), puis la planche.
@@ -278,6 +400,15 @@ try {
     const zoomApres = await tel.locator(".zoom-valeur").textContent();
     verifier(parseInt(zoomApres) > parseInt(zoomAvant) * 2.5, `le pincement devrait tripler le zoom : ${zoomAvant} → ${zoomApres}`);
     await tel.screenshot({ path: path.join(captures, "telephone-zoom.png") });
+    if (cartes) {
+      await tel.getByRole("button", { name: "Outils" }).tap();
+      await tel.getByRole("menuitem", { name: "Comparer deux PDF…" }).tap();
+      const dlg = tel.getByRole("dialog", { name: "Comparer deux PDF" });
+      await dlg.waitFor();
+      const gel = await comparerCartes(tel, dlg, "telephone-comparaison", true);
+      verifier(gel < 500, `l'interface a gelé ${Math.round(gel)} ms pendant la comparaison`);
+      await tel.keyboard.press("Escape");
+    }
     console.log(`Téléphone : barres, menus, édition, recherche, pages et pincement vérifiés (zoom ${zoomAvant} → ${zoomApres})`);
     await mobile.close();
     console.log(`Bilan de la modification : ${bilan}`);

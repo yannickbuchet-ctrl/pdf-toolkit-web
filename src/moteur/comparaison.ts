@@ -5,7 +5,7 @@
  */
 import * as mupdf from "mupdf";
 import { operations } from "./difflib";
-import { type Difference, type Mot, type Options, type Rect, type Resultat, type Type } from "./comparaisonTextes";
+import { detailVisuel, type Difference, type Mot, type Options, type Rect, type Resultat, type Type } from "./comparaisonTextes";
 
 export * from "./comparaisonTextes";
 
@@ -14,6 +14,20 @@ const CELLULE = 4; // pixels : grain des zones de différence visuelle (4 px à 
 const ECART = 2; // cellules : deux différences plus proches que cela forment une seule zone
 const LIGNES_JOINTES = 3; // lignes identiques au plus entre deux blocs modifiés comparés ensemble, mot à mot
 const ZONES_MAX = 25; // au-delà, les zones d'une page sont réunies en une seule
+// Réglage « plan technique » : rendu à 144 ppp (cellules de 0,7 mm au lieu de 1,4 mm), seules les cellules qui se
+// touchent forment une zone (un via et la piste voisine restent deux différences), et jusqu'à 150 zones par page.
+const DPI_FIN = 144;
+const ECART_FIN = 1;
+const ZONES_MAX_FIN = 150;
+/**
+ * Nom d'une couche de circuit imprimé (KiCad, Altium, Eagle, Gerber) ou d'un plan de perçage, lu dans le texte de la
+ * page (LAYER_NAME sur PC ; le \w de Python y devient [\p{L}\p{N}_]).
+ */
+export const NOM_COUCHE = new RegExp(
+  String.raw`(?<![\p{L}\p{N}_.])(?:[FB][._](?:Cu|SilkS|Silkscreen|Mask|Paste|Fab|CrtYd|Courtyard|Adhes|Adhesive)|In\d{1,2}[._]Cu` +
+  String.raw`|Edge[._]Cuts|User[._][\p{L}\p{N}_]+|Dwgs[._]User|Cmts[._]User|Margin` +
+  String.raw`|(?:Top|Bottom) (?:Layer|Overlay|Solder|Paste|Silkscreen|Copper)|Mid-?Layer ?\d+|Inner ?Layer ?\d+` +
+  String.raw`|Drill (?:Drawing|Guide|Map)|Plan de perçage|Perçages)(?![\p{L}\p{N}_])`, "iu");
 const SIMILITUDE_TEXTE = 0.25; // part des mots retrouvés à l'identique pour apparier deux pages
 const SIMILITUDE_IMAGE = 0.6; // ressemblance des vignettes pour apparier deux pages sans texte
 const BANDE = 30; // écart (en pages) cherché autour de la diagonale pour apparier les pages
@@ -111,6 +125,66 @@ export function motsImmobiles<T extends [Rect, string, ...unknown[]]>(mots: T[],
   for (const [r, t] of autres) places.set(t, [...(places.get(t) ?? []), r]);
   return mots.filter(([w, t]) => (places.get(t) ?? []).some((r) =>
     Math.abs(w[0] - r[0]) <= tolerance && Math.abs(w[1] - r[1]) <= tolerance && Math.abs(w[2] - r[2]) <= tolerance && Math.abs(w[3] - r[3]) <= tolerance));
+}
+
+/**
+ * Nom d'une page pour la comparaison (page_name sur PC) : son étiquette dans le PDF si elle n'est pas un simple numéro,
+ * sinon le nom de couche de circuit imprimé trouvé dans son texte (« F.Cu », « Top Layer », « Perçages »…), sinon "".
+ */
+export function nomDePage(page: mupdf.Page, mots: [Rect, string, ...unknown[]][]): string {
+  let etiquette = "";
+  try {
+    etiquette = page.getLabel().trim();
+  } catch {
+    etiquette = "";
+  }
+  if (etiquette && !/^\d+$/.test(etiquette)) return etiquette.slice(0, 40);
+  return mots.map((w) => w[1]).join(" ").match(NOM_COUCHE)?.[0] ?? "";
+}
+
+/** Rendu d'une page en niveaux de gris dans le cadre donné (en pixels du rendu à cette échelle), sur fond blanc. */
+function rendreGris(page: mupdf.Page, echelle: number, cadre: Rect): mupdf.Pixmap {
+  const pix = new mupdf.Pixmap(mupdf.ColorSpace.DeviceGray, cadre, false);
+  pix.clear(255);
+  const m: mupdf.Matrix = [echelle, 0, 0, echelle, 0, 0];
+  const appareil = new mupdf.DrawDevice(mupdf.Matrix.identity, pix);
+  try {
+    page.run(appareil, m);
+    appareil.close();
+  } finally {
+    appareil.destroy();
+  }
+  return pix;
+}
+
+/**
+ * Superposition de deux pages (overlay_pixmap sur PC), en RVB : ce qui n'est que dans A en rouge, que dans B en vert,
+ * ce qui est commun en noir. Chaque page est rendue en gris (la couleur d'origine ne compte pas) ; rouge = gris de B,
+ * vert = gris de A, bleu = le plus foncé des deux. zone : la partie montrée, en points de la page affichée (toute la
+ * page de A par défaut) ; B est rendue dans le même cadre, sur fond blanc si son format diffère.
+ */
+export function superposition(pageA: mupdf.Page, pageB: mupdf.Page, echelle: number, zone?: Rect): { largeur: number; hauteur: number; rvb: Uint8Array } {
+  const z = zone ?? (pageA.getBounds() as Rect);
+  const cadre: Rect = [Math.floor(z[0] * echelle), Math.floor(z[1] * echelle), Math.ceil(z[2] * echelle), Math.ceil(z[3] * echelle)];
+  const pa = rendreGris(pageA, echelle, cadre), pb = rendreGris(pageB, echelle, cadre);
+  try {
+    const largeur = pa.getWidth(), hauteur = pa.getHeight();
+    const ga = pa.getPixels(), gb = pb.getPixels(), sa = pa.getStride(), sb = pb.getStride();
+    const rvb = new Uint8Array(largeur * hauteur * 3);
+    for (let y = 0; y < hauteur; y++) {
+      let i = y * largeur * 3, oa = y * sa, ob = y * sb;
+      for (let x = 0; x < largeur; x++, i += 3, oa++, ob++) {
+        const a = ga[oa], b = gb[ob];
+        rvb[i] = b;
+        rvb[i + 1] = a;
+        rvb[i + 2] = a < b ? a : b;
+      }
+    }
+    return { largeur, hauteur, rvb };
+  } finally {
+    pa.destroy();
+    pb.destroy();
+  }
 }
 
 /** Vignette en niveaux de gris de taille fixe, pour apparier des pages sans texte. */
@@ -356,13 +430,16 @@ export function rapprocherReecritures(elements: Difference[], paires: [number | 
  * si l'écart d'une composante (rouge, vert ou bleu) d'un de ses pixels dépasse la tolérance. Les cellules couvertes
  * par masques (le texte, déjà comparé mot à mot) sont ignorées. Les cellules proches sont réunies en zones.
  */
-export function differencesVisuelles(pageA: mupdf.Page, pageB: mupdf.Page, tolerance: number, masques: Rect[] = []): Rect[] {
-  const echelle = DPI / 72;
+export function differencesVisuelles(pageA: mupdf.Page, pageB: mupdf.Page, tolerance: number, masques: Rect[] = [],
+  reglage: { dpi?: number; ecart?: number; zonesMax?: number } = {}): Rect[] {
+  const { dpi = DPI, ecart = ECART, zonesMax = ZONES_MAX } = reglage;
+  const echelle = dpi / 72;
   const m: mupdf.Matrix = [echelle, 0, 0, echelle, 0, 0];
   const pa = pageA.toPixmap(m, mupdf.ColorSpace.DeviceRGB, false, true);
   const pb = pageB.toPixmap(m, mupdf.ColorSpace.DeviceRGB, false, true);
   const largeur = Math.min(pa.getWidth(), pb.getWidth()), hauteur = Math.min(pa.getHeight(), pb.getHeight());
   const da = pa.getPixels(), db = pb.getPixels(), sa = pa.getStride(), sb = pb.getStride();
+  const ligne = largeur * 3;
   const limite = Math.round(Math.max(0, Math.min(1, tolerance)) * 255);
   const colonnes = Math.ceil(largeur / CELLULE);
   const cle = (cx: number, cy: number) => cy * (colonnes + 4) + cx;
@@ -373,17 +450,32 @@ export function differencesVisuelles(pageA: mupdf.Page, pageB: mupdf.Page, toler
     }
   }
   const marquees = new Set<number>();
+  // Les cellules sont d'abord comparées par groupes de 16 : la plupart sont identiques.
+  const groupe = 16 * CELLULE * 3;
   for (let y = 0; y < hauteur; y++) {
     const oa = y * sa, ob = y * sb;
     const cy = Math.floor(y / CELLULE);
-    for (let x = 0; x < largeur; x++) {
-      const pa3 = oa + x * 3, pb3 = ob + x * 3;
-      if (Math.abs(da[pa3] - db[pb3]) > limite || Math.abs(da[pa3 + 1] - db[pb3 + 1]) > limite || Math.abs(da[pa3 + 2] - db[pb3 + 2]) > limite) {
-        const k = cle(Math.floor(x / CELLULE), cy);
-        if (!masque.has(k)) marquees.add(k);
+    for (let debut = 0; debut < ligne; debut += groupe) {
+      const fin = Math.min(ligne, debut + groupe);
+      let o = debut;
+      while (o < fin && da[oa + o] === db[ob + o]) o++;
+      if (o === fin) continue;
+      // Les cellules du groupe sont examinées à partir de celle du premier octet différent.
+      for (let x = Math.floor(o / 3 / CELLULE) * CELLULE; x * 3 < fin; x += CELLULE) {
+        const k = cle(x / CELLULE, cy);
+        if (marquees.has(k) || masque.has(k)) continue;
+        const bout = Math.min(fin, (x + CELLULE) * 3);
+        for (let q = x * 3; q < bout; q++) {
+          if (Math.abs(da[oa + q] - db[ob + q]) > limite) {
+            marquees.add(k);
+            break;
+          }
+        }
       }
     }
   }
+  pa.destroy();
+  pb.destroy();
   let zones: Rect[] = [];
   const largeurCle = colonnes + 4;
   while (marquees.size) {
@@ -395,8 +487,8 @@ export function differencesVisuelles(pageA: mupdf.Page, pageB: mupdf.Page, toler
       const k = pile.pop()!;
       const cx = k % largeurCle, cy = Math.floor(k / largeurCle);
       x0 = Math.min(x0, cx); x1 = Math.max(x1, cx); y0 = Math.min(y0, cy); y1 = Math.max(y1, cy);
-      for (let dy = -ECART; dy <= ECART; dy++) {
-        for (let dx = -ECART; dx <= ECART; dx++) {
+      for (let dy = -ecart; dy <= ecart; dy++) {
+        for (let dx = -ecart; dx <= ecart; dx++) {
           const nx = cx + dx, ny = cy + dy;
           if (nx < 0 || ny < 0) continue;
           const v = cle(nx, ny);
@@ -409,7 +501,7 @@ export function differencesVisuelles(pageA: mupdf.Page, pageB: mupdf.Page, toler
     }
     zones.push([(x0 * CELLULE) / echelle, (y0 * CELLULE) / echelle, Math.min(largeur, (x1 + 1) * CELLULE) / echelle, Math.min(hauteur, (y1 + 1) * CELLULE) / echelle]);
   }
-  if (zones.length > ZONES_MAX) zones = [zones.reduce(union)];
+  if (zones.length > zonesMax) zones = [zones.reduce(union)];
   // Les coordonnées de rendu partent du coin de la page affichée.
   const [ox, oy] = pageA.getBounds();
   zones = zones.map((z) => [z[0] + ox, z[1] + oy, z[2] + ox, z[3] + oy]);
@@ -427,11 +519,12 @@ export function comparer(docA: mupdf.Document, docB: mupdf.Document, options: Op
   const notes: string[] = [];
 
   // 1. Lecture des mots de chaque page (30 %).
-  const infos: { mots: [Rect, string, string, string][]; vignette: Uint8Array | null; rect: Rect }[][] = [[], []];
+  const infos: { mots: [Rect, string, string, string][]; vignette: Uint8Array | null; rect: Rect; nom: string }[][] = [[], []];
   [docA, docB].forEach((doc, cote) => {
     for (let i = 0; i < doc.countPages(); i++) {
       const page = doc.loadPage(i);
-      infos[cote].push({ mots: motsDePage(page, ignorerCasse, ignorerPonctuation), vignette: null, rect: page.getBounds() as Rect });
+      const mots = motsDePage(page, ignorerCasse, ignorerPonctuation);
+      infos[cote].push({ mots, vignette: null, rect: page.getBounds() as Rect, nom: nomDePage(page, mots) });
       progression((0.3 * (i + 1 + (cote ? n : 0))) / total, `Lecture de la version ${"AB"[cote]} : page ${i + 1} / ${doc.countPages()}`);
     }
   });
@@ -544,10 +637,13 @@ export function comparer(docA: mupdf.Document, docB: mupdf.Document, options: Op
         const restesA = new Set(motsImmobiles(ma, mb)), restesB = new Set(motsImmobiles(mb, ma));
         masques = [...ma.filter((w) => !restesA.has(w)).map((w) => w[0]), ...mb.filter((w) => !restesB.has(w)).map((w) => w[0])];
       }
-      for (const zone of differencesVisuelles(pa, pb, options.tolerance, masques)) {
+      const reglage = options.reglage === "plan" ? { dpi: DPI_FIN, ecart: ECART_FIN, zonesMax: ZONES_MAX_FIN } : {};
+      for (const zone of differencesVisuelles(pa, pb, options.tolerance, masques, reglage)) {
+        // Position en mm depuis le coin haut gauche de la page affichée.
+        const coin: Rect = [zone[0] - ra[0], zone[1] - ra[1], zone[2] - ra[0], zone[3] - ra[1]];
         elements.push({
           type: "visuel", marquesA: [[a, intersection(zone, ra)]], marquesB: [[b, intersection(zone, rb)]], ancien: "", nouveau: "",
-          detail: "Aspect modifié : image, dessin, couleur, surlignage ou mise en page", pageA: null, pageB: null, paire: 0,
+          detail: detailVisuel(coin), pageA: null, pageB: null, paire: 0,
         });
       }
       progression(0.65 + (0.35 * (k + 1)) / Math.max(1, comparees.length), `Comparaison visuelle : page ${k + 1} / ${comparees.length}`);
@@ -571,6 +667,7 @@ export function comparer(docA: mupdf.Document, docB: mupdf.Document, options: Op
     return 0;
   });
   progression(1, "Terminé.");
-  return { paires, differences: elements, notes, pagesA: n, pagesB: m, texte: modeTexte, visuel: modeVisuel, options: { ...options } };
+  return { paires, differences: elements, notes, pagesA: n, pagesB: m, texte: modeTexte, visuel: modeVisuel, options: { ...options },
+    noms: [infosA.map((x) => x.nom), infosB.map((x) => x.nom)] };
 }
 

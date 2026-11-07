@@ -18,7 +18,7 @@ import { ajouterTexte, ErreurPdf, modifierTexte, policesLocales, segmentsDePage,
 import { policesDuDocument } from "./moteur/infoPolices";
 import { normaliser } from "./moteur/polices";
 import { estPlanche, lirePlanche, planchePdf } from "./moteur/photo";
-import { comparer, type Options, type Resultat } from "./moteur/comparaison";
+import { comparer, superposition, type Options, type Resultat } from "./moteur/comparaison";
 import { rapportComparaison } from "./moteur/rapport";
 import { APPLICATION } from "./version";
 
@@ -389,6 +389,20 @@ const methodes = {
     if (!comparaison.a || !comparaison.b) throw new Error("Choisissez les deux versions à comparer.");
     comparaison.resultat = comparer(comparaison.a.doc, comparaison.b.doc, a.options, progression);
     return comparaison.resultat;
+  },
+
+  /** Superposition d'une page de A et d'une page de B (rouge : seulement dans A, vert : seulement dans B), en RVBA. */
+  superposer(a: { pageA: number; pageB: number; echelle: number }) {
+    if (!comparaison.a || !comparaison.b) throw new Error("Choisissez les deux versions à comparer.");
+    const { largeur, hauteur, rvb } = superposition(comparaison.a.doc.loadPage(a.pageA), comparaison.b.doc.loadPage(a.pageB), a.echelle);
+    const pixels = new Uint8ClampedArray(largeur * hauteur * 4);
+    for (let s = 0, d = 0; s < rvb.length; s += 3, d += 4) {
+      pixels[d] = rvb[s];
+      pixels[d + 1] = rvb[s + 1];
+      pixels[d + 2] = rvb[s + 2];
+      pixels[d + 3] = 255;
+    }
+    return { largeur, hauteur, pixels };
   },
 
   rapport(a: { date: number }) {

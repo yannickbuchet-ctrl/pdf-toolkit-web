@@ -1,10 +1,13 @@
 /**
  * Rapport PDF d'une comparaison (comparison_report sur PC) : synthèse et liste numérotée des différences, puis, pour
  * chaque couple de pages qui diffère, la version A à gauche et la version B à droite, surlignées par des annotations
- * numérotées comme la liste.
+ * numérotées comme la liste, et enfin un gros plan de chaque différence (report_details).
  */
 import * as mupdf from "mupdf";
-import { decompte, description, MODES, titrePaire, TYPES, TYPES_PAGE, TYPES_TEXTE, type Rect, type Resultat } from "./comparaison";
+import {
+  decompte, description, millimetres, MODES, nomPaire, superposition, titrePaire, TYPES, TYPES_PAGE, TYPES_TEXTE, type Difference, type Rect,
+  type Resultat,
+} from "./comparaison";
 import { winAnsi } from "./tableUnicode";
 import { OPTIONS_SIMPLES } from "./document";
 
@@ -12,6 +15,7 @@ const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", 
 type Couleur = [number, number, number];
 const ARDOISE: Couleur = [0.28, 0.33, 0.41];
 const ENCRE: Couleur = [0.12, 0.16, 0.23];
+const GROS_PLANS = 150; // différences au plus montrées en gros plan à la fin du rapport
 
 const nb = (v: number) => {
   const t = v.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
@@ -109,6 +113,13 @@ class Ecrivain {
     this.y += 4;
   }
 
+  /** Ajoute un XObject (page, image) aux ressources de la page en cours. */
+  ressource(nom: string, objet: mupdf.PDFObject) {
+    const ressources = this.page.objet.get("Resources");
+    if (!ressources.get("XObject").isDictionary()) ressources.put("XObject", this.doc.newDictionary());
+    ressources.get("XObject").put(nom, objet);
+  }
+
   trait() {
     this.y += 2;
     this.page.contenu.push(`q 0.89 0.91 0.94 RG 0.8 w ${Ecrivain.MARGE} ${nb(this.y)} m ${Ecrivain.L - Ecrivain.MARGE} ${nb(this.y)} l S Q`);
@@ -156,10 +167,39 @@ export function formeDePage(cible: mupdf.PDFDocument, source: mupdf.PDFDocument,
   return { forme, transformation: page.getTransform(), bornes: page.getBounds() as Rect };
 }
 
+/**
+ * Cadre carré d'un gros plan autour d'une zone (detail_clip sur PC) : la zone et ses abords, au moins 34 points (12 mm)
+ * de côté, ramené dans la page sans être réduit tant qu'il y tient.
+ */
+export function cadreGrosPlan(zone: Rect, page: Rect): Rect {
+  let cote = Math.max(zone[2] - zone[0], zone[3] - zone[1]) * 1.5 + 18;
+  cote = Math.min(Math.max(cote, 34), Math.max(page[2] - page[0], page[3] - page[1]));
+  const cx = (zone[0] + zone[2]) / 2, cy = (zone[1] + zone[3]) / 2;
+  const c: Rect = [cx - cote / 2, cy - cote / 2, cx + cote / 2, cy + cote / 2];
+  const dx = Math.max(page[0] - c[0], 0) - Math.max(c[2] - page[2], 0);
+  const dy = Math.max(page[1] - c[1], 0) - Math.max(c[3] - page[3], 0);
+  return [Math.max(page[0], c[0] + dx), Math.max(page[1], c[1] + dy), Math.min(page[2], c[2] + dx), Math.min(page[3], c[3] + dy)];
+}
+
 export function rapportComparaison(resultat: Resultat, docA: mupdf.PDFDocument, docB: mupdf.PDFDocument, nomA: string, nomB: string, application: string, date = new Date()): Uint8Array {
   const rapport = new mupdf.PDFDocument();
   const e = new Ecrivain(rapport);
   const { differences: items, paires, options } = resultat;
+  const noms = resultat.noms;
+  // Pages des deux versions, et leur forme XObject dans le rapport (une seule par page, partagée par les feuillets et
+  // les gros plans).
+  const pages = new Map<string, mupdf.PDFPage>();
+  const page = (cote: "a" | "b", index: number) => {
+    const cle = cote + index;
+    if (!pages.has(cle)) pages.set(cle, (cote === "a" ? docA : docB).loadPage(index));
+    return pages.get(cle)!;
+  };
+  const formes = new Map<string, ReturnType<typeof formeDePage>>();
+  const forme = (cote: "a" | "b", index: number) => {
+    const cle = cote + index;
+    if (!formes.has(cle)) formes.set(cle, formeDePage(rapport, cote === "a" ? docA : docB, index));
+    return formes.get(cle)!;
+  };
 
   e.ligne("Comparaison de deux PDF", { taille: 20, gras: true, ecart: 8 });
   e.ligne(`Rapport établi le ${date.getDate()} ${MOIS[date.getMonth()]} ${date.getFullYear()} à ${date.getHours()} h ${String(date.getMinutes()).padStart(2, "0")} par ${application}`,
@@ -170,7 +210,10 @@ export function rapportComparaison(resultat: Resultat, docA: mupdf.PDFDocument, 
   const details = [`comparaison : ${MODES[options.mode].toLowerCase()}`];
   if (options.ignorerCasse) details.push("casse ignorée");
   if (options.ignorerPonctuation) details.push("ponctuation et espaces ignorés");
-  if (resultat.visuel) details.push(`tolérance visuelle ${Math.round(options.tolerance * 100)} %`);
+  if (resultat.visuel) {
+    details.push(`tolérance visuelle ${Math.round(options.tolerance * 100)} %`);
+    if (options.reglage === "plan") details.push("réglage plan technique (zones fines)");
+  }
   e.ligne("Options : " + details.join(", "), { taille: 9, couleur: ARDOISE, ecart: 6 });
   for (const note of resultat.notes) e.ligne(note, { taille: 9, couleur: rgb("#b45309") });
   e.trait();
@@ -193,11 +236,11 @@ export function rapportComparaison(resultat: Resultat, docA: mupdf.PDFDocument, 
     for (const k of [...parPaire.keys()].sort((a, b) => a - b)) {
       const c = new Map(decompte(parPaire.get(k)!));
       const autres = TYPES_PAGE.reduce((s, t) => s + (c.get(t) ?? 0), 0);
-      e.colonnes([titrePaire(paires[k]), ...(["ajout", "suppression", "modification", "visuel"] as const).map((t) => c.get(t) ?? ""), autres || ""], positions);
+      e.colonnes([titrePaire(paires[k], noms), ...(["ajout", "suppression", "modification", "visuel"] as const).map((t) => c.get(t) ?? ""), autres || ""], positions);
     }
     e.y += 6;
     e.ligne("Liste des différences", { taille: 13, gras: true, ecart: 4 });
-    e.ligne("Les numéros renvoient aux annotations des pages suivantes : version A à gauche, version B à droite.", { taille: 9, couleur: ARDOISE, ecart: 6 });
+    e.ligne("Les numéros renvoient aux annotations des pages suivantes (A à gauche, B à droite), puis aux gros plans de la fin.", { taille: 9, couleur: ARDOISE, ecart: 6 });
     positions = [0, 26, 96, 200];
     e.colonnes(["N°", "Pages", "Type", "Détail"], positions, { gras: true, couleur: ARDOISE });
     items.forEach((it, i) => {
@@ -218,23 +261,23 @@ export function rapportComparaison(resultat: Resultat, docA: mupdf.PDFDocument, 
   const marge = 24, entete = 46, ecart = 24;
   paires.forEach(([a, b]) => {
     if ((a === null || !marques.has(`a${a}`)) && (b === null || !marques.has(`b${b}`))) return;
-    const bornesA = (a !== null ? docA.loadPage(a) : docB.loadPage(b!)).getBounds();
-    const bornesB = (b !== null ? docB.loadPage(b) : docA.loadPage(a!)).getBounds();
+    const bornesA = (a !== null ? page("a", a) : page("b", b!)).getBounds();
+    const bornesB = (b !== null ? page("b", b) : page("a", a!)).getBounds();
     const la = bornesA[2] - bornesA[0], ha = bornesA[3] - bornesA[1], lb = bornesB[2] - bornesB[0], hb = bornesB[3] - bornesB[1];
-    const formes: Record<string, mupdf.PDFObject> = {};
+    const objets: Record<string, mupdf.PDFObject> = {};
     const cotes = [["a", a, docA, marge, la, ha, nomA], ["b", b, docB, marge + la + ecart, lb, hb, nomB]] as const;
     const dessins: string[] = [];
-    for (const [cote, index, doc, origine, l, h] of cotes) {
+    for (const [cote, index, , origine, l, h] of cotes) {
       if (index === null) continue;
-      const { forme, transformation, bornes } = formeDePage(rapport, doc, index);
-      formes["P" + cote] = forme;
+      const { forme: f, transformation, bornes } = forme(cote, index);
+      objets["P" + cote] = f;
       const t = transformation.map(nb).join(" ");
       dessins.push(`q ${nb(origine)} ${entete} ${nb(l)} ${nb(h)} re W n 1 0 0 1 ${nb(origine - bornes[0])} ${nb(entete - bornes[1])} cm ${t} cm /P${cote} Do Q`);
     }
-    const feuille = e.nouvellePage(marge * 2 + ecart + la + lb, entete + marge + Math.max(ha, hb), { XObject: formes });
+    const feuille = e.nouvellePage(marge * 2 + ecart + la + lb, entete + marge + Math.max(ha, hb), { XObject: objets });
     feuille.contenu.push(...dessins);
     const compte = new Set(cotes.flatMap(([cote, index]) => (index === null ? [] : (marques.get(`${cote}${index}`) ?? []).map((m) => m[1])))).size;
-    e.texte(marge, 22, `${titrePaire([a, b])} — ${compte} différence${pl(compte)}`, 12, true);
+    e.texte(marge, 22, `${titrePaire([a, b], noms)} — ${compte} différence${pl(compte)}`, 12, true);
     for (const [cote, index, , origine, l, h, nom] of cotes) {
       const place: Rect = [origine, entete, origine + l, entete + h];
       e.texte(origine, entete - 8, e.ajuster(`Version ${cote.toUpperCase()} — ${nom}`, l, 9), 9, false, ARDOISE);
@@ -256,6 +299,7 @@ export function rapportComparaison(resultat: Resultat, docA: mupdf.PDFDocument, 
       }
     }
   });
+  grosPlans(e, resultat, page, forme);
   e.terminer();
 
   for (const { feuille, numero, item, rect } of annotations) {
@@ -278,4 +322,92 @@ export function rapportComparaison(resultat: Resultat, docA: mupdf.PDFDocument, 
   rapport.setMetaData("info:Title", "Comparaison de deux PDF");
   rapport.setMetaData("info:Creator", application);
   return rapport.saveToBuffer(OPTIONS_SIMPLES).asUint8Array().slice();
+}
+
+/**
+ * Gros plans à la fin du rapport (report_details sur PC) : pour chaque différence localisée, la zone et ses abords
+ * dans A et dans B (la page elle-même, en vectoriel) et superposés (image : rouge = seulement dans A, vert = seulement
+ * dans B), avec un cadre pointillé de la couleur de la différence et sa position en millimètres.
+ */
+function grosPlans(e: Ecrivain, resultat: Resultat, page: (cote: "a" | "b", index: number) => mupdf.PDFPage,
+  forme: (cote: "a" | "b", index: number) => ReturnType<typeof formeDePage>) {
+  const { differences: items, paires, noms } = resultat;
+  const montrees = items.map((it, i) => [i + 1, it] as [number, Difference]).filter(([, it]) => !it.niveauPage);
+  if (!montrees.length) return;
+  const L = Ecrivain.L, H = Ecrivain.H, marge = 36, ecart = 10, legende = 30;
+  const panneau = (L - 2 * marge - 2 * ecart) / 3;
+  const rangee = legende + panneau + 18;
+  const parPage = Math.floor((H - 2 * marge - 30) / rangee);
+  let y = 0, images = 0;
+  for (let k = 0; k < montrees.length; k++) {
+    if (k === GROS_PLANS) {
+      e.texte(marge, Math.min(y + 12, H - marge), `Les ${montrees.length - k} différences suivantes ne sont pas montrées en gros plan.`, 9, false, ARDOISE);
+      break;
+    }
+    if (k % parPage === 0) {
+      e.nouvellePage();
+      e.texte(marge, marge, "Gros plans des différences", 14, true);
+      e.texte(marge, marge + 14, "A : ancienne version · B : nouvelle version · superposition : rouge = seulement dans A, vert = seulement dans B, noir = identique", 8, false, ARDOISE);
+      y = marge + 30;
+    }
+    const [numero, it] = montrees[k];
+    const paire = paires[it.paire];
+    const pageA = it.pageA ?? paire[0], pageB = it.pageB ?? paire[1];
+    const marques = it.marquesB.length ? it.marquesB : it.marquesA;
+    const zone = marques.slice(1).reduce<Rect>((z, [, r]) => [Math.min(z[0], r[0]), Math.min(z[1], r[1]), Math.max(z[2], r[2]), Math.max(z[3], r[3])], [...marques[0][1]] as Rect);
+    const reference = (pageB !== null ? page("b", pageB) : page("a", pageA!)).getBounds() as Rect;
+    const cadre = cadreGrosPlan(zone, reference);
+    const [couleur, libelle] = TYPES[it.type];
+    const nom = nomPaire(paire, noms);
+    const titre = `${numero}. ${libelle}${nom ? ` · ${nom}` : ""} : ${description(it)}`;
+    e.texte(marge, y + 10, e.ajuster(titre, L - 2 * marge, 9.5, true), 9.5, true, rgb(couleur));
+    const [ox, oy] = reference;
+    e.texte(marge, y + 22, e.ajuster(`Zone : x ${millimetres(zone[0] - ox)} à ${millimetres(zone[2] - ox)} mm, y ${millimetres(zone[1] - oy)} à ${millimetres(zone[3] - oy)} mm, ` +
+      `depuis le coin haut gauche de la page (A page ${pageA === null ? "—" : pageA + 1}, B page ${pageB === null ? "—" : pageB + 1})`, L - 2 * marge, 8), 8, false, ARDOISE);
+    const haut = y + legende;
+    const lc = cadre[2] - cadre[0], hc = cadre[3] - cadre[1];
+    const echelle = Math.min(panneau / lc, panneau / hc);
+    for (const [j, intitule, cote, index] of [[0, "A", "a", pageA], [1, "B", "b", pageB], [2, "Superposition", null, null]] as const) {
+      const place: Rect = [marge + j * (panneau + ecart), haut, marge + j * (panneau + ecart) + panneau, haut + panneau];
+      e.texte(place[0], place[3] + 11, intitule, 8, true, ARDOISE);
+      const montre: Rect = [place[0] + (panneau - lc * echelle) / 2, place[1] + (panneau - hc * echelle) / 2, 0, 0];
+      montre[2] = montre[0] + lc * echelle;
+      montre[3] = montre[1] + hc * echelle;
+      const contour = `${nb(montre[0])} ${nb(montre[1])} ${nb(montre[2] - montre[0])} ${nb(montre[3] - montre[1])} re`;
+      if (cote === null) {
+        if (pageA === null || pageB === null) {
+          e.texte(place[0] + 8, place[1] + 20, "Une seule version", 9, false, ARDOISE);
+          continue;
+        }
+        const zoom = Math.min(8, (2 * panneau) / lc);
+        const { largeur, hauteur, rvb } = superposition(page("a", pageA), page("b", pageB), zoom, cadre);
+        const pix = new mupdf.Pixmap(mupdf.ColorSpace.DeviceRGB, [0, 0, largeur, hauteur], false);
+        const cible = pix.getPixels(), pas = pix.getStride();
+        for (let ligne = 0; ligne < hauteur; ligne++) cible.set(rvb.subarray(ligne * largeur * 3, (ligne + 1) * largeur * 3), ligne * pas);
+        const image = new mupdf.Image(pix);
+        const nomImage = `S${images++}`;
+        e.ressource(nomImage, e.doc.addImage(image));
+        image.destroy();
+        pix.destroy();
+        // L'image est posée tête en haut dans le repère du rapport (y vers le bas).
+        e.page.contenu.push(`q ${contour} W n ${nb(montre[2] - montre[0])} 0 0 ${nb(-(montre[3] - montre[1]))} ${nb(montre[0])} ${nb(montre[3])} cm /${nomImage} Do Q`);
+      } else if (index === null) {
+        e.texte(place[0] + 8, place[1] + 20, "Pas de page correspondante", 9, false, ARDOISE);
+        continue;
+      } else {
+        // La page elle-même, en vectoriel, réduite au cadre du gros plan.
+        const { forme: f, transformation } = forme(cote, index);
+        const nomForme = `P${cote}${index}`;
+        e.ressource(nomForme, f);
+        e.page.contenu.push(`q ${contour} W n 0 g 0 G ${nb(echelle)} 0 0 ${nb(echelle)} ${nb(montre[0] - echelle * cadre[0])} ${nb(montre[1] - echelle * cadre[1])} cm ` +
+          `${transformation.map(nb).join(" ")} cm /${nomForme} Do Q`);
+      }
+      const r: Rect = [montre[0] + (zone[0] - cadre[0]) * echelle - 2, montre[1] + (zone[1] - cadre[1]) * echelle - 2,
+        montre[0] + (zone[2] - cadre[0]) * echelle + 2, montre[1] + (zone[3] - cadre[1]) * echelle + 2];
+      e.page.contenu.push(`q [3] 0 d 1.2 w ${rgb(couleur).map(nb).join(" ")} RG ${nb(r[0])} ${nb(r[1])} ${nb(r[2] - r[0])} ${nb(r[3] - r[1])} re S Q`);
+    }
+    // Cadres des trois vues, dessinés en dernier : l'image ou la page ne les recouvre pas.
+    for (let j = 0; j < 3; j++) e.rectangle([marge + j * (panneau + ecart), haut, marge + j * (panneau + ecart) + panneau, haut + panneau], null, [0.8, 0.83, 0.87], 0.6);
+    y += rangee;
+  }
 }
