@@ -124,9 +124,31 @@ export async function vueComparaison(app: Application) {
   affichage.addEventListener("change", () => {
     majLegende();
     if (!resultat) return;
+    // L'endroit regardé est gardé (même couple de pages, même hauteur dans la page, même point en largeur), au lieu de
+    // revenir à la différence en cours : on change d'affichage pour regarder le même endroit autrement.
+    const position = positionVisible();
     afficher();
-    if (courant >= 0) aller(courant);
+    if (courant >= 0) marquerCourante();
+    if (position) restaurerPosition(position);
   });
+
+  /** Le couple de pages en haut de la vue, la hauteur et le point du milieu en largeur, en fraction de sa première page. */
+  const positionVisible = () => {
+    const vue = cote.getBoundingClientRect();
+    const sections = [...cote.querySelectorAll<HTMLElement>("section.paire")];
+    const section = sections.find((s) => s.getBoundingClientRect().bottom > vue.top + 1) ?? sections[0];
+    if (!section) return null;
+    const page = (section.querySelector(".page-comparee") as HTMLElement | null)?.getBoundingClientRect() ?? section.getBoundingClientRect();
+    return { paire: section.dataset.paire!, haut: (vue.top - page.top) / page.height, milieu: (vue.left + vue.width / 2 - page.left) / page.width };
+  };
+  const restaurerPosition = (p: { paire: string; haut: number; milieu: number }) => {
+    const section = cote.querySelector<HTMLElement>(`section.paire[data-paire="${p.paire}"]`);
+    if (!section) return;
+    const vue = cote.getBoundingClientRect();
+    const page = (section.querySelector(".page-comparee") as HTMLElement | null)?.getBoundingClientRect() ?? section.getBoundingClientRect();
+    cote.scrollTop += page.top + p.haut * page.height - vue.top;
+    cote.scrollLeft += page.left + p.milieu * page.width - (vue.left + vue.width / 2);
+  };
   // Sur téléphone, les options et les fichiers se replient après la comparaison pour laisser la place aux pages ; ce
   // bouton (caché sur ordinateur) les rouvre.
   const plier = el("button", { type: "button", class: "bouton cadre plier", text: "Options et fichiers", "aria-expanded": "true" });
@@ -268,12 +290,17 @@ export async function vueComparaison(app: Application) {
     });
   };
 
+  /** Met en avant la différence en cours dans la liste et sur les pages, sans faire défiler. */
+  const marquerCourante = () => {
+    liste.querySelectorAll(".difference").forEach((b) => b.setAttribute("aria-current", String(Number((b as HTMLElement).dataset.index) === courant)));
+    marques.forEach((m) => m.element.classList.toggle("actif", m.index === courant));
+  };
+
   const aller = (i: number) => {
     if (!resultat || !resultat.differences.length) return;
     courant = (i + resultat.differences.length) % resultat.differences.length;
     const d: Difference = resultat.differences[courant];
-    liste.querySelectorAll(".difference").forEach((b) => b.setAttribute("aria-current", String(Number((b as HTMLElement).dataset.index) === courant)));
-    marques.forEach((m) => m.element.classList.toggle("actif", m.index === courant));
+    marquerCourante();
     const cible = marques.find((m) => m.index === courant)?.element ?? cote.querySelector(`[data-paire="${d.paire}"]`);
     cible?.scrollIntoView({ block: "center", behavior: "smooth" });
     (liste.querySelector(`.difference[data-index="${courant}"]`) as HTMLElement | null)?.scrollIntoView({ block: "nearest" });

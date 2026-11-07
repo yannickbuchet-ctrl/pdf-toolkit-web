@@ -136,6 +136,30 @@ async function comparerCartes(page, dialogue, prefixe, telephone) {
   verifier(mesure.actif[3] > 0 && mesure.actif[1] < mesure.ecran[1], `la différence choisie n'est pas à l'écran : ${JSON.stringify(mesure)}`);
   verifier(mesure.deborde <= 1, `défilement horizontal de la vue : ${mesure.deborde} px`);
   await page.screenshot({ path: path.join(captures, `${prefixe}-superposees.png`) });
+  if (!telephone) {
+    // Changer d'affichage garde l'endroit regardé : le milieu de la couche B.Cu, et non la différence en cours (In2.Cu).
+    const ou = () => page.evaluate(() => {
+      const vue = document.querySelector(".cote-a-cote");
+      const haut = vue.getBoundingClientRect().top;
+      const s = [...vue.querySelectorAll("section.paire")].find((x) => x.getBoundingClientRect().bottom > haut + 1);
+      const p = s.querySelector(".page-comparee").getBoundingClientRect();
+      return { couche: s.getAttribute("aria-label").split(" — ")[0], haut: Math.round(((haut - p.top) / p.height) * 1000) / 1000 };
+    });
+    await page.evaluate(() => {
+      const vue = document.querySelector(".cote-a-cote");
+      const s = [...vue.querySelectorAll("section.paire")].find((x) => x.getAttribute("aria-label").startsWith("B.Cu"));
+      const p = s.querySelector(".page-comparee").getBoundingClientRect();
+      vue.scrollTop += p.top + 0.6 * p.height - vue.getBoundingClientRect().top;
+    });
+    const avant = await ou();
+    for (const valeur of ["cote", "superposees"]) {
+      await affichage.selectOption(valeur);
+      const apres = await ou();
+      verifier(apres.couche === avant.couche && Math.abs(apres.haut - avant.haut) < 0.01,
+        `affichage ${valeur} : position perdue ${JSON.stringify(avant)} → ${JSON.stringify(apres)}`);
+    }
+    console.log(`Changement d'affichage : position gardée (${avant.couche}, ${Math.round(avant.haut * 100)} % de la page)`);
+  }
   let rapport = "";
   if (!telephone) {
     const [telechargement] = await Promise.all([page.waitForEvent("download"), dialogue.getByRole("button", { name: "Rapport PDF" }).click()]);
