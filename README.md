@@ -4,6 +4,8 @@ Un éditeur de PDF simple et en français qui fonctionne **entièrement dans vot
 organiser et assembler les pages, remplir les formulaires, signer, protéger par mot de passe, compresser, créer des
 photos d'identité et comparer deux versions d'un document.
 
+**Ouvrir le site : <https://yannickbuchet-ctrl.github.io/pdf-toolkit-web/>**
+
 C'est la version en ligne de [PDF Toolkit 2](https://github.com/yannickbuchet-ctrl/pdf-toolkit-2), l'éditeur PDF pour
 Windows, avec le même moteur : MuPDF.
 
@@ -185,7 +187,7 @@ PDF Toolkit Web est distribué sous la licence **GNU AGPL v3** (voir [LICENSE](L
 [MuPDF](https://mupdf.com/) (Artifex Software), sous licence AGPL : toute personne qui met ce logiciel à
 disposition, y compris sur un site web, modifié ou non, doit aussi en publier le code source.
 
-Code source : **[À COMPLÉTER : adresse du dépôt]** (à indiquer aussi dans `src/version.ts`, `CODE_SOURCE`).
+Code source : [github.com/yannickbuchet-ctrl/pdf-toolkit-web](https://github.com/yannickbuchet-ctrl/pdf-toolkit-web).
 
 Licences des composants tiers : [LICENCES-TIERCES.md](LICENCES-TIERCES.md).
 
@@ -264,7 +266,7 @@ manuellement (onglet « Actions » → « Publier sur GitHub Pages » → « Run
 
 1. créer le dépôt sur GitHub et y pousser la branche `main` ;
 2. dans Settings → Pages, choisir la source « GitHub Actions » ;
-3. compléter l'adresse du code source dans `src/version.ts` (`CODE_SOURCE`) et dans ce README.
+3. si le dépôt change d'adresse, la mettre à jour dans `src/version.ts` (`CODE_SOURCE`) et dans ce README.
 
 ### Organisation du code
 
