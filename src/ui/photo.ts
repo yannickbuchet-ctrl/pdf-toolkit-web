@@ -7,6 +7,7 @@ import type { Application } from "./app";
 import { appel } from "./moteur";
 import { choisirFichiers, el, fenetre, lire, pluriel } from "./dom";
 import { chargerImage } from "./outils";
+import { TYPES_IMAGES } from "./images";
 import { icone } from "./icones";
 import {
   ANGLE_MAX, disposition, FORMATS, MARGE_MIN, PAPIERS, PPP_FAIBLE, PPP_MAX, PPP_MIN, REGLAGES_DEFAUT, reglagesVersTexte,
@@ -66,12 +67,13 @@ export async function dialoguePhoto(app: Application, fichier: File | null, plan
   try {
     if (planche) original = await chargerImage(new Blob([planche.jpeg as BlobPart], { type: "image/jpeg" }));
     else {
-      fichier ??= (await choisirFichiers("image/*"))[0] ?? null;
+      fichier ??= (await choisirFichiers(TYPES_IMAGES))[0] ?? null;
       if (!fichier) return;
-      original = await chargerImage(fichier);
+      original = await chargerImage(fichier, (m) => app.message(m, "info", 0));
+      app.message("");
     }
   } catch (e) {
-    app.erreur(e, "Photo illisible (formats pris en charge : ceux du navigateur, comme JPEG, PNG, WebP)");
+    app.erreur(e, "Photo illisible");
     return;
   }
   const r: Reglages = structuredClone(planche?.reglages ?? REGLAGES_DEFAUT);
@@ -382,10 +384,11 @@ export async function dialoguePhoto(app: Application, fichier: File | null, plan
   majPerso();
   new ResizeObserver(() => dessiner()).observe(zoneVue);
   changer.addEventListener("click", async () => {
-    const [fi] = await choisirFichiers("image/*");
+    const [fi] = await choisirFichiers(TYPES_IMAGES);
     if (!fi) return;
     try {
-      original = image = await chargerImage(fi);
+      original = image = await chargerImage(fi, (m) => app.message(m, "info", 0));
+      app.message("");
       operations.length = 0;
       angle = 0;
       redresser.i.value = "0";

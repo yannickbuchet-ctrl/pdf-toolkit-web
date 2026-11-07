@@ -4,6 +4,7 @@
 import { appel, ErreurMoteur, surOccupation } from "./moteur";
 import { bouton, choisirFichiers, confirmer, demander, el, estPdf, fenetre, informer, lire, menuFlottant, pluriel, tailleLisible, telecharger } from "./dom";
 import { icone, LOGO } from "./icones";
+import { estImage } from "./images";
 import type { EtatDocument } from "../worker";
 import type { Segment } from "../moteur/segments";
 import type { Champ, Occurrence } from "../moteur/pages";
@@ -1394,10 +1395,11 @@ export class Application {
       const fichiers = [...(e.dataTransfer?.files ?? [])];
       const pdfs = fichiers.filter(estPdf);
       if (!pdfs.length) {
-        if (fichiers.some((f) => f.type.startsWith("image/"))) {
-          if (this.etat) outils.image(this, fichiers.find((f) => f.type.startsWith("image/")));
-          else outils.photoIdentite(this, fichiers.find((f) => f.type.startsWith("image/")));
-        } else this.message("Seuls les fichiers PDF et les images peuvent être déposés ici.", "erreur");
+        // Le type d'une photo HEIC est souvent inconnu de Windows : l'extension suffit alors.
+        const image = fichiers.find(estImage);
+        if (!image) this.message("Seuls les fichiers PDF et les images peuvent être déposés ici.", "erreur");
+        else if (this.etat) outils.image(this, image);
+        else outils.photoIdentite(this, image);
         return;
       }
       if (!this.etat) {

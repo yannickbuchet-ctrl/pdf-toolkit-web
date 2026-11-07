@@ -29,6 +29,21 @@ La liste exacte et les textes de licence de chaque composant se trouvent dans le
 (<https://mupdf.com/releases>, dossier `thirdparty/` et fichier `COPYING`). Elle dépend de la façon dont Artifex
 compile MuPDF.js : en cas de doute, ce sont ces sources qui font foi.
 
+### Lecteur de photos HEIC
+
+Fichier `heic.worker-….js`, téléchargé seulement à la première photo HEIC (photos d'iPhone) dans un navigateur qui ne
+sait pas les lire.
+
+| Composant | Version | Rôle | Licence |
+|---|---|---|---|
+| [libheif-js](https://github.com/catdad-experiments/libheif-js) (Kiril Vatev) | 1.23.5 | libheif compilé en WebAssembly pour le navigateur | GNU LGPL v3 |
+| [libheif](https://github.com/strukturag/libheif) (struktur AG) | 1.23 | lecture du conteneur HEIF, rotation et symétrie de la photo | GNU LGPL v3 |
+| [libde265](https://github.com/strukturag/libde265) (struktur AG) | inclus dans libheif-js | décodage des images compressées en HEVC (H.265) | GNU LGPL v3 |
+
+Les textes de la licence LGPL sont dans le paquet npm `libheif-js` (fichiers `LICENSE` et `libheif-wasm/LICENSE`).
+Le code source de ces bibliothèques est publié aux adresses ci-dessus. Celui de PDF Toolkit Web (AGPL) l'est aussi :
+on peut donc reconstruire le site avec une autre version de ces bibliothèques, comme le demande la LGPL.
+
 ## Utilisés seulement pour construire le site (non publiés)
 
 | Outil | Rôle | Licence |

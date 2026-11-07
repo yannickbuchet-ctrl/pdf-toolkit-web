@@ -18,6 +18,7 @@ import { ajouterTexte, ErreurPdf, modifierTexte, policesLocales, segmentsDePage,
 import { policesDuDocument } from "./moteur/infoPolices";
 import { normaliser } from "./moteur/polices";
 import { estPlanche, lirePlanche, planchePdf } from "./moteur/photo";
+import { imageEnPng } from "./moteur/images";
 import { comparer, superposition, type Options, type Resultat } from "./moteur/comparaison";
 import { rapportComparaison } from "./moteur/rapport";
 import { APPLICATION } from "./version";
@@ -231,6 +232,11 @@ const methodes = {
   ajouterForme(a: { page: number; type: "Square" | "Circle"; rect: [number, number, number, number]; couleur: Couleur; epaisseur: number }) {
     operation("ajout d’une forme", () => ajouterForme(doc().loadPage(a.page), a.type, a.rect, a.couleur, a.epaisseur, APPLICATION));
     return null;
+  },
+
+  /** Une image que le navigateur ne sait pas lire (TIFF, JPEG 2000…), convertie en PNG. */
+  imageEnPng(a: { octets: Uint8Array }) {
+    return imageEnPng(a.octets);
   },
 
   insererImage(a: { page: number; octets: Uint8Array; rect: [number, number, number, number]; signature: boolean }) {

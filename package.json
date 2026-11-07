@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "libheif-js": "^1.23.5",
     "mupdf": "^1.28.1"
   },
   "devDependencies": {

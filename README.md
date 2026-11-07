@@ -18,7 +18,8 @@ Windows, avec le même moteur : MuPDF.
 - **Aucune statistique, aucun traceur, aucune publicité.** Le site ne charge rien depuis un autre site (pas même une
   police de caractères), et sa politique de sécurité interdit d'envoyer des données ailleurs.
 - **Hors ligne** : une fois le site ouvert une première fois, il continue de fonctionner sans connexion. Seuls les
-  fichiers du site lui-même sont gardés par le navigateur, jamais vos documents.
+  fichiers du site lui-même sont gardés par le navigateur, jamais vos documents. Le lecteur des photos HEIC fait
+  exception : il n'est téléchargé (2 Mo) qu'à la première photo HEIC, puis gardé à son tour.
 - Fermer l'onglet efface tout : enregistrez votre document avant.
 
 ## Fonctions
@@ -51,7 +52,14 @@ Windows, avec le même moteur : MuPDF.
 - **Formulaires** : zones de texte, cases à cocher, cases rondes à choix unique (« ○ Oui ● Non ») et listes de choix
   se remplissent directement sur la page.
 - **Signatures et images** : signez à la souris, au doigt ou au stylet, ou importez une signature scannée (son fond
-  blanc devient transparent) ou une image ; placez-la et redimensionnez-la sur la page.
+  blanc devient transparent) ou une image ; placez-la et redimensionnez-la sur la page. Une image peut aussi être
+  glissée sur le document.
+- **Formats de photo** : JPEG, PNG, **HEIC et HEIF** (photos d'iPhone et de certains Android), WebP, AVIF, GIF, BMP
+  et TIFF, dans tous les navigateurs. Quand le navigateur ne connaît pas un format (le HEIC hors de Safari, le TIFF
+  hors de Safari), le site le lit lui-même, sans rien envoyer. L'orientation de la photo (prise en hauteur) est
+  respectée. Une photo est mise dans le PDF en JPEG, une image transparente en PNG, et un JPEG droit tel quel. Une
+  photo de plus de 16 millions de pixels est réduite à cette taille, qui suffit pour imprimer une page A4 entière en
+  haute qualité, et évite de saturer la mémoire d'un téléphone.
 
 ### Organiser et assembler
 
@@ -88,7 +96,7 @@ version B (la nouvelle), puis cliquez sur **Comparer**. **Inverser** échange le
 
 ### Photos d'identité
 
-Menu Outils → **Photos d'identité**, à partir d'une photo :
+Menu Outils → **Photos d'identité**, à partir d'une photo (mêmes formats que ci-dessus, photos d'iPhone comprises) :
 
 - choisissez le cadre (aux bonnes proportions, avec l'ovale du visage), redressez, faites pivoter, réglez la
   luminosité et le contraste ;
@@ -156,9 +164,11 @@ Un navigateur protège votre ordinateur : un site ne peut pas tout faire. Voici 
   l'échelle « 100 % » : un site ne peut pas imposer ces réglages à l'imprimante, alors que la version Windows le fait.
   Pour un document de plusieurs formats de page, le navigateur ajuste chaque page à la feuille.
 - **Photos d'identité** : l'outil « tronquer » de la version Windows n'existe pas ; les planches qui en contiennent
-  sont relues correctement. En revanche, le navigateur lit plus de formats de photo (WebP, et HEIC avec Safari).
-  Les réglages joints à la planche sont écrits au même format que sur Windows (compatibilité non vérifiée dans
-  l'autre sens).
+  sont relues correctement. En revanche, la version web lit plus de formats de photo (HEIC, WebP, AVIF). Les
+  réglages joints à la planche sont écrits au même format que sur Windows (compatibilité non vérifiée dans l'autre
+  sens).
+- **Photos HEIC hors connexion** : le lecteur HEIC n'est gardé qu'après une première utilisation en ligne. Sans
+  connexion et avant cela, une photo HEIC ne peut pas être lue (un message le dit).
 - **PDF aux droits limités** (impression ou copie interdites, sans mot de passe d'ouverture) : ces limites sont
   retirées à l'enregistrement, un message le signale.
 - **Taille** : tout le document est en mémoire, et chaque opération annulable en garde une copie (au plus 50 copies
@@ -195,6 +205,8 @@ Licences des composants tiers : [LICENCES-TIERCES.md](LICENCES-TIERCES.md).
 
 - Application écrite par **Claude Code** (Claude Opus 5.5) sous la direction de **Yannick Buchet**.
 - [MuPDF et MuPDF.js](https://mupdf.com/) (Artifex Software, AGPL) pour le traitement des PDF.
+- [libheif](https://github.com/strukturag/libheif) et libde265 (struktur AG, LGPL), par
+  [libheif-js](https://github.com/catdad-experiments/libheif-js), pour les photos HEIC.
 
 ---
 
@@ -232,12 +244,22 @@ npm test                              # tests de la logique (Vitest, MuPDF WebAs
 npm run build                         # vérification TypeScript, puis construction dans dist/
 npx playwright install chromium       # une seule fois : navigateur sans fenêtre
 node scripts/parcours-navigateur.mjs  # parcours dans le site construit, captures dans captures/
+node scripts/essai-images.mjs         # formats de photo dans le site construit (dist/essai-images/)
 ```
+
+`scripts/essai-images.mjs` insère dans Chromium une photo HEIC d'iPhone (sur ordinateur et sur téléphone), un TIFF,
+une photo JPEG de 24 Mpx tournée par son EXIF, un PNG transparent et une photo HEIC déposée sans type de fichier,
+puis relit le PDF enregistré : orientation, format (JPEG ou PNG avec transparence), réduction à 16 Mpx. Il ouvre aussi
+les photos d'identité depuis une photo HEIC, vérifie que le site et le lecteur HEIC marchent hors connexion après une
+seule visite, et qu'aucune requête ne quitte le site. On peut lui donner une grande photo HEIC pour mesurer le temps
+de lecture : `node scripts/essai-images.mjs photo.heic`.
 
 Les tests créent leurs propres PDF (aucun document personnel n'est utilisé) et relisent les fichiers produits :
 modification du texte (police standard, police intégrée complète, police réduite, TrueType, accents, page pivotée),
 pages, fusion, mots de passe, compression, formulaires, annotations, recherche, dimensions exactes des photos
-d'identité et lecture sûre de leurs réglages, comparaison et rapport.
+d'identité et lecture sûre de leurs réglages, comparaison et rapport, formats d'image (reconnaissance du format,
+photo HEIC tournée lue par libheif, TIFF et JPEG en CMJN convertis par MuPDF). La seule image d'essai enregistrée,
+`tests/images/quadrants-quart-de-tour.heic`, est un damier de quatre couleurs fabriqué avec pillow-heif.
 
 Si le dossier `Exemples Gerber` existe à côté du projet (deux révisions d'une carte de circuit imprimé, avec la liste
 des modifications faites), `tests/comparaison-gerber.test.ts` compare les deux cartes A4 et vérifie que chaque
@@ -256,8 +278,10 @@ Le résultat, `dist/`, est un site statique aux chemins relatifs : il peut être
 Pour fixer un chemin de base (sous-dossier d'un site) : `BASE=/pdf-toolkit-web/ npm run build`
 (PowerShell : `$env:BASE = "/pdf-toolkit-web/"; npm run build`). `npm run preview` sert `dist/` en local.
 
-Le service worker (`public/sw.js`) n'est actif que sur HTTPS ou `localhost`. Changez son nom de cache
-(`CACHE`) à chaque version pour libérer l'ancien.
+Le service worker (`public/sw.js`) n'est actif que sur HTTPS ou `localhost`. À la construction, `vite.config.ts`
+écrit la liste des fichiers du site dans `dist/hors-ligne.json`, que le service worker garde dès son installation
+(hors ligne dès la première visite), et donne à son cache un nom tiré de cette liste : chaque nouvelle version
+remplace l'ancienne, sans rien changer à la main. Le lecteur HEIC est laissé hors de la liste.
 
 ### Déployer sur GitHub Pages
 
@@ -272,11 +296,13 @@ manuellement (onglet « Actions » → « Publier sur GitHub Pages » → « Run
 
 | Dossier ou fichier | Rôle |
 |---|---|
-| `src/moteur/` | logique PDF avec MuPDF : texte (`texte.ts`, `polices.ts`, `segments.ts`, `tableUnicode.ts`), document et pages, compression, photos d'identité, comparaison et rapport |
+| `src/moteur/` | logique PDF avec MuPDF : texte (`texte.ts`, `polices.ts`, `segments.ts`, `tableUnicode.ts`), document et pages, compression, photos d'identité, comparaison et rapport, images que le navigateur ne lit pas (`images.ts`), reconnaissance du format d'une image (`formatImage.ts`) |
 | `src/worker.ts` | le moteur dans un Web Worker : documents ouverts, annuler et rétablir |
-| `src/ui/` | l'interface : application, outils et fenêtres, photos d'identité, comparaison |
-| `tests/` | tests Vitest et fabrique de PDF de test |
+| `src/heic.worker.ts` | le lecteur de photos HEIC (libheif en WebAssembly), dans un Web Worker créé à la demande |
+| `src/ui/` | l'interface : application, outils et fenêtres, lecture des images (`images.ts`), photos d'identité, comparaison |
+| `tests/` | tests Vitest, fabrique de PDF de test, photo HEIC d'essai (`tests/images/`) |
 | `scripts/parcours-navigateur.mjs` | parcours dans Chromium sans fenêtre |
+| `scripts/essai-images.mjs` | formats de photo dans Chromium sans fenêtre |
 | `public/` | service worker, manifeste et icône |
 
 À noter pour MuPDF.js 1.28 (vérifié par les tests) : enregistrer le document de travail avec des options

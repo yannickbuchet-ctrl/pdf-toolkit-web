@@ -6,6 +6,7 @@ import type { Application } from "./app";
 import { appel } from "./moteur";
 import { bouton, choisirFichiers, confirmer, demander, el, estPdf, fenetre, lire, menuFlottant, pluriel, tailleLisible } from "./dom";
 import { icone, LOGO } from "./icones";
+import { encoderPourPdf, lireImage, reduire, TYPES_IMAGES } from "./images";
 import { APPLICATION, AUTEUR, CODE_SOURCE, DATE, DIRECTEUR, MODELE, MUPDF_VERSION, VERSION } from "../version";
 import type { InfoPoliceDocument } from "../moteur/infoPolices";
 
@@ -305,26 +306,21 @@ async function versPng(canvas: HTMLCanvasElement): Promise<Uint8Array> {
   return lire(blob);
 }
 
-/** Lit une image avec le navigateur (orientation EXIF comprise) et la renvoie en canvas. */
-export async function chargerImage(fichier: Blob): Promise<HTMLCanvasElement> {
-  const bitmap = await createImageBitmap(fichier, { imageOrientation: "from-image" } as ImageBitmapOptions);
-  const c = el("canvas", { width: bitmap.width, height: bitmap.height });
-  c.getContext("2d")!.drawImage(bitmap, 0, 0);
-  bitmap.close();
-  return c;
+/** Lit une image (formats et réductions : voir images.ts) et la renvoie en canvas, redressée. */
+export async function chargerImage(fichier: Blob, annoncer?: (message: string) => void): Promise<HTMLCanvasElement> {
+  return (await lireImage(fichier, annoncer)).canvas;
 }
 
 export async function image(app: Application, fichier?: File) {
   if (!app.etat) return;
-  fichier ??= (await choisirFichiers("image/png,image/jpeg,image/webp,image/gif,image/bmp"))[0];
+  fichier ??= (await choisirFichiers(TYPES_IMAGES))[0];
   if (!fichier) return;
   try {
-    const estJpeg = /jpe?g$/i.test(fichier.type) || /\.jpe?g$/i.test(fichier.name);
-    const canvas = await chargerImage(fichier);
-    // Un JPEG sans rotation EXIF est inséré tel quel (il reste compressé en JPEG dans le PDF) ; sinon, en PNG.
-    const octets = estJpeg ? await lire(fichier) : await versPng(canvas);
-    const orientationOk = estJpeg ? await jpegSansRotation(fichier) : true;
-    await placer(app, orientationOk ? octets : await versPng(canvas), canvas, false);
+    const lue = await lireImage(fichier, (m) => app.message(m, "info", 0));
+    // Un JPEG sans rotation EXIF est inséré tel quel. Les autres images sont réencodées : en JPEG pour une photo
+    // (un PNG serait cinq à dix fois plus lourd), en PNG si elles ont des transparences.
+    const octets = lue.format === "jpeg" && (await jpegSansRotation(fichier)) ? await lire(fichier) : await encoderPourPdf(lue);
+    await placer(app, octets, lue.canvas, false);
   } catch (e) {
     app.erreur(e, "Image illisible");
   }
@@ -364,7 +360,7 @@ export async function signature(app: Application) {
       el("button", { type: "button", class: "bouton cadre", text: "Effacer", style: { flex: "0" }, onclick: () => effacer() }),
       el("span", { class: "aide", text: "Signez dans le cadre ; vous placerez ensuite la signature sur la page." })));
   const transparent = el("input", { type: "checkbox", checked: true });
-  const fichier = el("input", { type: "file", accept: "image/png,image/jpeg,image/webp", class: "entree" });
+  const fichier = el("input", { type: "file", accept: TYPES_IMAGES, class: "entree" });
   const panneauImage = el("div", { role: "tabpanel", hidden: true },
     el("div", { class: "champ-formulaire" }, el("label", { text: "Image de la signature (photo ou scan) :" }), fichier),
     el("label", { class: "choix" }, transparent, el("span", {}, "Rendre le fond blanc transparent", el("span", { class: "indication", text: "Le papier blanc ou gris clair disparaît, l’encre reste." }))));
@@ -424,7 +420,8 @@ export async function signature(app: Application) {
     if (!panneauImage.hidden) {
       const fi = fichier.files?.[0];
       if (!fi) return;
-      source = await chargerImage(fi);
+      // Une signature n'occupe qu'une partie de la page : 2 000 pixels suffisent, même pour une photo de 12 Mpx.
+      source = reduire(await chargerImage(fi, (m) => app.message(m, "info", 0)), 2000);
       if (transparent.checked) {
         const c = source.getContext("2d")!;
         const d = c.getImageData(0, 0, source.width, source.height);
@@ -475,7 +472,8 @@ async function placer(app: Application, octets: Uint8Array, apercu: HTMLCanvasEl
     l = h * ratio;
   }
   let x = (p.largeur - l) / 2, y = (p.hauteur - h) / 2;
-  const img = el("img", { src: apercu.toDataURL(), alt: "" });
+  // L'aperçu affiché pendant le placement : une copie réduite (une photo entière en PNG prendrait des secondes).
+  const img = el("img", { src: reduire(apercu, 1200).toDataURL(), alt: "" });
   const poignee = el("div", { class: "poignee", "aria-hidden": "true" });
   const valider = el("button", { type: "button", class: "bouton principal", text: "Valider" });
   const annuler = el("button", { type: "button", class: "bouton cadre", text: "Annuler" });
