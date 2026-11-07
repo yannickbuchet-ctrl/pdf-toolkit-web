@@ -21,54 +21,109 @@ Windows, avec le même moteur : MuPDF.
 
 ## Fonctions
 
-- **Ouvrir, enregistrer, imprimer** : bouton « Ouvrir » ou glisser-déposer d'un PDF sur la page. Avec Chrome ou Edge,
-  « Enregistrer » écrit directement sur le fichier d'origine (le navigateur demande l'autorisation la première
-  fois) ; ailleurs, le PDF est téléchargé.
-- **Modifier le texte** : bouton « Modifier le texte », puis cliquez sur un texte pour le réécrire. La police
-  d'origine est conservée quand c'est possible, ainsi que la taille, la couleur et la position. Un message indique
-  la police utilisée, et, si des lettres manquent à la police d'origine, lesquelles ont été prises ailleurs.
-- **Ajouter du texte**, dans la police, la taille et la couleur de votre choix.
-- **Rechercher et remplacer**, sans tenir compte des accents ni des majuscules (« ete » trouve « Été »), une
-  occurrence à la fois ou toutes ensemble.
+### Lire et naviguer
+
+- **Ouvrir** un PDF avec le bouton « Ouvrir » ou en le glissant sur la page. Les PDF protégés par mot de passe
+  s'ouvrent après saisie du mot de passe.
+- **Zoom** avec Ctrl + molette, Ctrl+plus et Ctrl+moins (Ctrl+0 : 100 %), ou à deux doigts sur un écran tactile.
+  **Aller à une page** : Ctrl+G, ou le numéro de page dans la barre.
+- **Rechercher** (Ctrl+F) sans tenir compte des accents ni des majuscules (« ete » trouve « Été ») ; F3 et Maj+F3
+  passent à l'occurrence suivante ou précédente.
+
+### Modifier et ajouter du texte
+
+- **Modifier le texte** : bouton « Modifier le texte » (ou touche T), puis cliquez sur un texte pour le réécrire.
+  L'ancien texte est vraiment retiré du fichier. La police d'origine est conservée quand c'est possible, ainsi que la
+  taille, la couleur et la position. Un message indique la police utilisée et, si des lettres manquent à la police
+  d'origine, lesquelles ont été prises ailleurs.
+- **Rechercher et remplacer** (Ctrl+H) : une occurrence à la fois ou toutes ensemble.
+- **Ajouter du texte** n'importe où sur la page, en Helvetica, Times ou Courier, à la taille et dans la couleur de
+  votre choix, en gras ou en italique.
+- **Infos sur les polices** (menu Outils) : nom exact, style, version, éditeur, licence, lettres présentes dans le
+  PDF, et liens pour rechercher la police sur Internet ou sur Google Fonts.
+
+### Annoter, remplir, signer
+
 - **Annotations** : surligner, souligner ou barrer du texte, poser une note, dessiner à main levée, tracer un
-  rectangle ou une ellipse ; la liste des annotations de la page permet d'en supprimer.
+  rectangle ou une ellipse. La liste des annotations de la page (menu Outils) permet d'en supprimer.
+- **Formulaires** : zones de texte, cases à cocher, cases rondes à choix unique (« ○ Oui ● Non ») et listes de choix
+  se remplissent directement sur la page.
 - **Signatures et images** : signez à la souris, au doigt ou au stylet, ou importez une signature scannée (son fond
   blanc devient transparent) ou une image ; placez-la et redimensionnez-la sur la page.
-- **Formulaires** : champs texte, cases à cocher et listes de choix se remplissent directement sur la page.
-- **Organiser les pages** dans la colonne des miniatures : pivoter, déplacer (glisser-déposer, ou Ctrl+flèches),
-  supprimer, extraire dans un nouveau PDF, insérer une page blanche ou les pages d'un autre PDF. « Organiser les
-  pages » affiche les miniatures en grille.
-- **Fusionner des PDF** dans l'ordre de votre choix ; un PDF déposé sur le document ouvert peut être ajouté à la fin.
-- **Mots de passe** : ouverture des PDF protégés, protection par mot de passe (chiffrement AES 256 bits) ou retrait
-  de la protection.
+
+### Organiser et assembler
+
+- **Pages**, dans la colonne des miniatures : pivoter, déplacer (glisser-déposer, ou Ctrl+flèches), supprimer,
+  extraire dans un nouveau PDF, insérer une page blanche ou les pages d'un autre PDF. « Organiser les pages » affiche
+  les miniatures en grille.
+- **Fusionner des PDF** (menu Outils) dans l'ordre de votre choix. Un PDF glissé sur le document ouvert peut être
+  ajouté à la fin, ou ouvert à la place.
+- **Annuler et rétablir** chaque opération : Ctrl+Z, Ctrl+Y.
+
+### Comparer deux PDF
+
+Menu Outils → **Comparer deux PDF**. Le document ouvert est proposé comme version A (l'ancienne) ; choisissez la
+version B (la nouvelle), puis cliquez sur **Comparer**. **Inverser** échange les deux.
+
+- **Ce qui est comparé** : le texte mot à mot (mots ajoutés en vert, supprimés en rouge, modifiés en orange) et
+  l'aspect des pages (images, dessins, couleurs, mise en page : encadrés en violet, avec leur taille et leur position
+  en millimètres, par exemple « zone de 0,7 × 1,4 mm à x 93,1 mm, y 50,8 mm »). Les pages ajoutées ou supprimées sont
+  repérées sans décaler la suite.
+- **Deux affichages** : **côte à côte**, ou **superposées** : chaque page de A et sa page de B en une seule image, ce
+  qui n'est que dans A en rouge, ce qui n'est que dans B en vert, ce qui est identique en noir. Passer de l'un à
+  l'autre garde l'endroit regardé.
+- **La liste des différences** mène à chacune ; F3 et Maj+F3 passent à la suivante ou à la précédente.
+- **Réglages** :
+  - **Document** (par défaut) : pour les textes, contrats, devis…, avec une tolérance visuelle de 10 %.
+  - **Plan technique (circuit, dessin)** : pour les plans et les circuits imprimés, par exemple des couches Gerber
+    imprimées en PDF. Rendu deux fois plus fin, tolérance de 5 %, et deux détails qui ne se touchent pas (un via et la
+    piste voisine) restent deux différences. Le nom de chaque couche (F.Cu, B.Cu, In1.Cu, F.Silkscreen, Top Layer,
+    Perçages…) précède le numéro des pages.
+  - Options : ignorer les majuscules, ignorer la ponctuation, comparer le texte seul ou l'aspect seul, tolérance
+    visuelle réglable.
+- **Rapport PDF** : synthèse, liste numérotée, pages A et B annotées, puis un gros plan de chaque différence (jusqu'à
+  150) : la zone et ses abords dans A, dans B et superposés, avec sa position en millimètres.
+
+### Photos d'identité
+
+Menu Outils → **Photos d'identité**, à partir d'une photo :
+
+- choisissez le cadre (aux bonnes proportions, avec l'ovale du visage), redressez, faites pivoter, réglez la
+  luminosité et le contraste ;
+- formats France et Union européenne, Royaume-Uni, États-Unis, Canada, Chine, Japon, Australie ou sur mesure ;
+  papier 10 × 15 cm, 13 × 18 cm, A6, A5, A4, Lettre ou sur mesure ;
+- la planche s'imprime à la taille exacte des photos (voir « Impression » plus bas).
+
+La photo entière et les réglages peuvent être joints au PDF pour modifier la planche plus tard (« Outils → Modifier la
+planche de photos ») : décochez cette option avant de transmettre le fichier.
+
+### Enregistrer, protéger, imprimer
+
+- **Enregistrer** (Ctrl+S) : avec Chrome ou Edge, le PDF est écrit directement sur le fichier d'origine (le
+  navigateur demande l'autorisation la première fois) ; ailleurs, il est téléchargé. **Enregistrer sous** :
+  Ctrl+Maj+S.
+- **Mots de passe** (menu Outils) : protection par mot de passe (chiffrement AES 256 bits) ou retrait de la
+  protection.
 - **Compression à l'enregistrement** : sans perte, ou forte (images réduites à environ 150 ppp et recompressées en
   JPEG) pour l'envoi par e-mail. La taille avant et après est affichée.
-- **Infos sur les polices** : nom exact, style, version, éditeur, licence, lettres présentes dans le PDF, et liens
-  pour rechercher la police sur Internet ou sur Google Fonts.
-- **Photos d'identité** : à partir d'une photo, choisissez le cadre (aux bonnes proportions, avec l'ovale du visage),
-  redressez, faites pivoter, réglez la luminosité et le contraste. Formats France et Union européenne, Royaume-Uni,
-  États-Unis, Canada, Chine, Japon, Australie ou sur mesure ; papier 10 × 15 cm, 13 × 18 cm, A6, A5, A4, Lettre ou
-  sur mesure. La planche s'imprime à la taille exacte des photos. La photo entière et les réglages peuvent être joints
-  au PDF pour modifier la planche plus tard (« Outils → Modifier la planche de photos ») : décochez cette option avant
-  de transmettre le fichier.
-- **Comparer deux PDF** : les deux versions côte à côte, avec les différences surlignées : mots ajoutés en vert,
-  supprimés en rouge, modifiés en orange, et images, dessins, couleurs ou mise en page changés encadrés en violet, avec
-  leur taille et leur position en millimètres (« zone de 0,7 × 1,4 mm à x 93,1 mm, y 50,8 mm »). Les pages ajoutées ou
-  supprimées sont repérées sans décaler la suite. Les différences se lisent de l'ancienne version (A) vers la nouvelle
-  (B) ; le document ouvert est proposé comme version A, et « Inverser » échange les deux. La liste des différences mène
-  à chacune (F3 et Maj+F3). Options : ignorer les majuscules, la ponctuation, comparer le texte seul ou l'aspect seul,
-  tolérance visuelle.
-  - **Affichage « Superposées »** : chaque page de A et sa page de B en une seule image, où ce qui n'est que dans A
-    apparaît en rouge, ce qui n'est que dans B en vert, et ce qui est identique en noir. C'est l'affichage proposé sur
-    téléphone, où les options et les fichiers se replient après la comparaison (bouton « Options et fichiers »).
-  - **Réglage « Plan technique (circuit, dessin) »**, pour les plans et les circuits imprimés (couches Gerber imprimées
-    en PDF) : rendu deux fois plus fin, tolérance de 5 %, et des zones distinctes pour deux détails qui ne se touchent
-    pas (un via et la piste voisine), jusqu'à 150 par page. Le nom de chaque couche (F.Cu, B.Cu, In1.Cu, F.Silkscreen,
-    Perçages, Top Layer…), lu dans le texte de la page ou dans son étiquette, précède le numéro des pages.
-  - **Rapport PDF** : synthèse, liste numérotée, pages A et B annotées, puis un gros plan de chaque différence (jusqu'à
-    150) : la zone et ses abords dans A, dans B et superposés, avec sa position en millimètres.
-- **Annuler et rétablir** chaque opération (Ctrl+Z, Ctrl+Y), zoom (Ctrl + molette), aller à une page (Ctrl+G).
-- Interface utilisable au clavier, sur tablette et sur téléphone, en mode clair ou sombre selon votre système.
+- **Imprimer** : Ctrl+P.
+
+### Sur téléphone et tablette
+
+Sur un écran étroit, la barre du haut ne garde que l'essentiel (ouvrir, enregistrer, numéro de page, annuler,
+rétablir, Outils) et une barre en bas de l'écran, sous le pouce, regroupe le reste :
+
+| Bouton | Rôle |
+|---|---|
+| Pages | ouvre ou ferme la colonne des miniatures |
+| Modifier | mode « Modifier le texte » : touchez un texte pour le réécrire |
+| Annoter | remplir les formulaires, ajouter du texte, surligner, poser une note, dessiner, signer, insérer une image |
+| Chercher | rechercher et remplacer |
+| Plus | zoom, ajuster à la largeur, enregistrer sous, imprimer |
+
+La page est ajustée à la largeur de l'écran dès l'ouverture ; zoomez à deux doigts. Dans la comparaison, l'affichage
+« Superposées » est choisi d'office et les options se replient après le calcul (bouton « Options et fichiers » pour
+les rouvrir). L'interface suit le mode clair ou sombre de l'appareil.
 
 ### Raccourcis clavier
 
@@ -76,9 +131,10 @@ Windows, avec le même moteur : MuPDF.
 |---|---|
 | Ctrl+O, Ctrl+S, Ctrl+Maj+S, Ctrl+P | ouvrir, enregistrer, enregistrer sous, imprimer |
 | Ctrl+Z, Ctrl+Y | annuler, rétablir |
-| Ctrl+F, Ctrl+H, F3, Maj+F3 | rechercher, remplacer, occurrence suivante ou précédente |
+| Ctrl+F, Ctrl+H | rechercher, rechercher et remplacer |
+| F3, Maj+F3 | occurrence ou différence suivante, précédente |
 | Ctrl+G | aller à une page |
-| Ctrl+plus, Ctrl+moins, Ctrl+0 | zoom |
+| Ctrl+plus, Ctrl+moins, Ctrl+0 | zoom avant, arrière, 100 % |
 | T | mode « Modifier le texte » |
 | Échap | revenir à la lecture, annuler une saisie |
 
