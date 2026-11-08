@@ -7,7 +7,7 @@ import { appel } from "./moteur";
 import { bouton, choisirFichiers, confirmer, demander, el, estPdf, fenetre, lire, menuFlottant, pluriel, tailleLisible } from "./dom";
 import { icone, LOGO } from "./icones";
 import { encoderPourPdf, lireImage, reduire, TYPES_IMAGES } from "./images";
-import { APPLICATION, AUTEUR, CODE_SOURCE, DATE, DIRECTEUR, MODELE, MUPDF_VERSION, VERSION } from "../version";
+import { APPLICATION, AUTEUR, CODE_SOURCE, DATE, DIRECTEUR, MODELE, MUPDF_VERSION, TESSERACT_VERSION, VERSION } from "../version";
 import type { InfoPoliceDocument } from "../moteur/infoPolices";
 
 export type ChoixCompression = "aucune" | "sans-perte" | "forte";
@@ -42,6 +42,7 @@ export function accueil(app: Application): HTMLElement {
     fonction("fusion", "Fusionner des PDF", "Assemblez plusieurs fichiers dans l’ordre de votre choix.", () => fusion(app)),
     fonction("pages", "Organiser les pages", "Pivoter, déplacer, supprimer, extraire ou insérer des pages.", () => app.ouvrirDialogue()),
     fonction("comparer", "Comparer deux PDF", "Différences de texte mot à mot et différences visuelles, côte à côte, avec rapport.", () => comparer(app)),
+    fonction("ocr", "Rendre un scan cherchable", "Reconnaissance de texte (OCR) : le texte d’un PDF scanné se cherche, se sélectionne et se copie.", () => app.ouvrirDialogue()),
     fonction("photo", "Photos d’identité", "Une planche aux dimensions exactes, à imprimer sans mise à l’échelle.", () => photoIdentite(app)),
     fonction("signature", "Signer et annoter", "Signature, image, surlignage, notes, dessin et formulaires.", () => app.ouvrirDialogue()),
     fonction("compresser", "Compresser", "Réduisez la taille d’un PDF pour l’envoyer par e-mail.", () => app.ouvrirDialogue()),
@@ -71,6 +72,7 @@ export function menu(app: Application, ancre: HTMLElement) {
     { icone: "cadenas", texte: "Mot de passe…", action: () => motDePasse(app), actif: ouvert },
     { icone: "police", texte: "Infos sur les polices…", action: () => infosPolices(app), actif: ouvert },
     { icone: "liste", texte: "Annotations de la page…", action: () => listeAnnotations(app), actif: ouvert },
+    { icone: "ocr", texte: "Reconnaissance de texte (OCR)…", action: () => ocr(app), actif: ouvert },
     null,
     { icone: "photo", texte: "Photos d’identité…", action: () => photoIdentite(app) },
     { icone: "photo", texte: "Modifier la planche de photos…", action: () => modifierPlanche(app), actif: ouvert && !!app.etat?.planche },
@@ -681,6 +683,7 @@ export async function aPropos() {
       el("dt", { text: "Composants tiers" }),
       el("dd", {}, el("ul", { style: { margin: "4px 0", paddingLeft: "18px" } },
         el("li", {}, `MuPDF ${MUPDF_VERSION} et MuPDF.js (Artifex Software) — AGPL v3 — lecture, rendu et écriture des PDF.`),
+        el("li", {}, `Tesseract.js ${TESSERACT_VERSION} et Tesseract (Apache 2.0), avec leurs données de langue française et anglaise (Apache 2.0) — reconnaissance de texte, téléchargés seulement à sa première utilisation.`),
         el("li", {}, "Polices standard du PDF intégrées à MuPDF (URW Nimbus Sans, Nimbus Roman, Nimbus Mono…) — licences libres de leurs auteurs, détaillées dans LICENCES-TIERCES.md."),
         el("li", {}, "Vite et TypeScript servent seulement à construire le site ; ils ne sont pas inclus dans le site publié."))),
     ));
@@ -782,6 +785,13 @@ async function modifierPlanche(app: Application) {
   } catch (e) {
     app.erreur(e, "Planche illisible");
   }
+}
+
+/** Reconnaissance de texte (OCR) : le module (et Tesseract.js) n'est chargé qu'à la première utilisation. */
+export async function ocr(app: Application) {
+  if (!app.etat) return;
+  const m = await import("./ocr");
+  await m.reconnaissanceTexte(app);
 }
 
 export async function comparer(app: Application) {

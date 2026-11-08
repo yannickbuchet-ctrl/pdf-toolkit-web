@@ -46,6 +46,8 @@ const traits: Record<string, string> = {
   rapport: '<path d="M6 3h8l4 4v14H6z"/><path d="M9 12h6M9 16h6M9 8h2"/>',
   formulaire: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6"/><rect x="7" y="16" width="3" height="2"/>',
   selection: '<path d="m5 3 14 8-6 2-2 6z"/>',
+  // Coins de cadrage d'un scanner autour d'un « T » : lire le texte d'une image (comme l'icône OCR de la version PC).
+  ocr: '<path d="M3 8V4a1 1 0 0 1 1-1h4M16 3h4a1 1 0 0 1 1 1v4M21 16v4a1 1 0 0 1-1 1h-4M8 21H4a1 1 0 0 1-1-1v-4"/><path d="M8 8h8M12 8v9"/>',
 };
 
 export function icone(nom: keyof typeof traits | string): string {

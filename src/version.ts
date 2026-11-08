@@ -8,3 +8,4 @@ export const DIRECTEUR = "Yannick Buchet";
 /** Adresse du code source (obligation de la licence AGPL). */
 export const CODE_SOURCE = "https://github.com/yannickbuchet-ctrl/pdf-toolkit-web";
 export const MUPDF_VERSION = "1.28.1";
+export const TESSERACT_VERSION = "7.0.0";

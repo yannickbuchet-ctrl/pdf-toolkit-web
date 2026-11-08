@@ -162,6 +162,9 @@ a { color: var(--accent); }
 .morceau { position: absolute; border: 1px dashed rgb(37 99 235 / 0); border-radius: 2px; cursor: text; }
 .mode-texte .morceau { border-color: rgb(37 99 235 / 0.35); }
 .mode-texte .morceau:hover, .morceau:focus-visible { border-color: #2563eb; background: rgb(37 99 235 / 0.08); }
+/* Texte reconnu par l'OCR : invisible sur l'image du scan, il ne se modifie pas (pointillés gris, comme sur PC). */
+.mode-texte .morceau.ocr { border-color: rgb(100 116 139 / 0.5); cursor: help; }
+.mode-texte .morceau.ocr:hover, .morceau.ocr:focus-visible { border-color: rgb(100 116 139 / 0.9); background: rgb(100 116 139 / 0.12); }
 .occurrence { position: absolute; background: rgb(250 204 21 / 0.45); mix-blend-mode: multiply; pointer-events: none; border-radius: 2px; }
 .occurrence.courante { background: rgb(249 115 22 / 0.6); outline: 2px solid #ea580c; }
 .editeur {
@@ -304,6 +307,12 @@ dialog legend { padding: 0 4px; font-weight: 600; }
 .marque-diff.actif { outline: 3px solid #f59e0b; outline-offset: 2px; }
 .barre-progression { height: 6px; background: var(--bord-doux); border-radius: 3px; overflow: hidden; }
 .barre-progression div { height: 100%; background: var(--accent); width: 0; transition: width 0.2s; }
+/* --- Reconnaissance de texte (OCR) ------------------------------------------------------------------------------ */
+.choix-pages { align-items: center; flex-wrap: wrap; }
+.choix-pages input[type="radio"] { margin-top: 0; }
+.choix-pages .entree { flex: 1 1 8em; min-width: 6em; }
+dialog.ocr .barre-progression { margin: 10px 0 4px; }
+.statut-ocr { min-height: 1.4em; margin: 8px 0 0; overflow-wrap: anywhere; }
 .legende { display: flex; flex-wrap: wrap; gap: 10px; font-size: 0.9em; }
 .legende span { display: inline-flex; align-items: center; gap: 4px; }
 .legende i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; box-shadow: 0 0 0 1px var(--bord); }

@@ -8,6 +8,7 @@ import { estImage } from "./images";
 import type { EtatDocument } from "../worker";
 import type { Segment } from "../moteur/segments";
 import type { Champ, Occurrence } from "../moteur/pages";
+import { AIDE_TEXTE_OCR, type BilanOcr } from "../moteur/ocrLecture";
 import { APPLICATION } from "../version";
 import * as outils from "./outils";
 
@@ -505,6 +506,10 @@ export class Application {
     if (this.mode === "texte") {
       vue.segments ??= await appel("segments", { page: vue.index }, { discret: true });
       for (const seg of vue.segments) {
+        if (seg.ocr) {
+          vue.calque.append(this.morceauOcr(seg, s));
+          continue;
+        }
         const m = el("div", {
           class: "morceau", role: "button", tabindex: "0", title: seg.texte, "aria-label": `Modifier le texte : ${seg.texte}`,
           style: { left: `${(seg.x0 - 1) * s}px`, top: `${(seg.y0 - 1) * s}px`, width: `${(seg.x1 - seg.x0 + 2) * s}px`, height: `${(seg.y1 - seg.y0 + 2) * s}px` },
@@ -527,6 +532,37 @@ export class Application {
       for (const c of vue.champs) vue.calque.append(this.champFormulaire(vue, c, s));
     }
     this.dessinerOccurrences(vue);
+  }
+
+  /**
+   * Un morceau du texte reconnu par l'OCR, en mode texte : encadré en pointillés gris, il ne se modifie pas (il est
+   * invisible : un texte réécrit s'afficherait par-dessus l'image du scan). Le toucher explique pourquoi.
+   */
+  morceauOcr(seg: Segment, s: number): HTMLElement {
+    const m = el("div", {
+      class: "morceau ocr", role: "button", tabindex: "0", title: `${seg.texte}\n${AIDE_TEXTE_OCR}`, "aria-label": `Texte reconnu par l’OCR, non modifiable : ${seg.texte}`,
+      style: { left: `${(seg.x0 - 1) * s}px`, top: `${(seg.y0 - 1) * s}px`, width: `${(seg.x1 - seg.x0 + 2) * s}px`, height: `${(seg.y1 - seg.y0 + 2) * s}px` },
+    });
+    const expliquer = () => this.message(`${AIDE_TEXTE_OCR} Pour le corriger, refaites l’OCR de la page (Outils → Reconnaissance de texte), « Ignorer les pages qui contiennent déjà du texte » décoché.`, "info", 15000);
+    m.addEventListener("click", (e) => {
+      e.stopPropagation();
+      expliquer();
+    });
+    m.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        expliquer();
+      }
+    });
+    return m;
+  }
+
+  /** Après une reconnaissance de texte (terminée ou interrompue) qui a modifié le document : pages redessinées (certaines
+   * ont pu être redressées), recherche en cours relancée. */
+  async apresOcr(bilan: BilanOcr) {
+    await this.apresModification();
+    const n = bilan.faites.length;
+    this.message(`Texte reconnu sur ${pluriel(n, "page")} : il se cherche (Ctrl+F) et se copie. Ctrl+Z pour annuler.`, "succes", 10000);
   }
 
   champFormulaire(vue: VuePage, c: Champ, s: number): HTMLElement {
@@ -1355,7 +1391,16 @@ export class Application {
   async remplacer(tout: boolean) {
     if (!this.occurrences.length) return;
     const remplacement = this.champRemplacement!.value;
-    const liste = tout ? this.occurrences : [this.occurrences[this.occurrenceCourante]];
+    // Le texte reconnu par l'OCR est invisible sur l'image du scan : il ne se remplace pas.
+    const choisies = tout ? this.occurrences : [this.occurrences[this.occurrenceCourante]];
+    const liste = choisies.filter((o) => !o.segment.ocr);
+    const reconnues = choisies.length - liste.length;
+    if (!liste.length) {
+      this.message(tout
+        ? "Ces occurrences font toutes partie du texte reconnu par l’OCR, invisible sur l’image du scan : elles ne peuvent pas être remplacées."
+        : "Cette occurrence fait partie du texte reconnu par l’OCR, invisible sur l’image du scan : elle ne peut pas être remplacée (F3 : occurrence suivante).", "info", 10000);
+      return;
+    }
     try {
       const bilans = await appel("remplacer_occurrences", { occurrences: liste, remplacement });
       const pages = [...new Set(liste.map((o) => o.page))];
@@ -1363,6 +1408,7 @@ export class Application {
       await this.lancerRecherche(false);
       let msg = tout ? `${pluriel(liste.length, "occurrence remplacée", "occurrences remplacées")} (Ctrl+Z pour annuler).` : bilans[0]?.message ?? "Remplacé.";
       if (tout && bilans.some((b) => !b.conservee)) msg += " Certaines lettres absentes de la police d’origine ont été prises dans une police proche.";
+      if (reconnues) msg += ` ${pluriel(reconnues, "occurrence du texte reconnu par l’OCR laissée telle quelle", "occurrences du texte reconnu par l’OCR laissées telles quelles")}.`;
       this.message(msg, "succes", 12000);
       if (!tout) this.montrerOccurrence();
     } catch (e) {
@@ -1421,7 +1467,7 @@ export class Application {
       const saisie = cible.closest("input, textarea, select, [contenteditable]") !== null;
       const ctrl = e.ctrlKey || e.metaKey;
       const touche = e.key.toLowerCase();
-      if (ctrl && touche === "o") {
+      if (ctrl && !e.shiftKey && touche === "o") {
         e.preventDefault();
         this.ouvrirDialogue();
       } else if (ctrl && touche === "s") {
@@ -1438,6 +1484,9 @@ export class Application {
       } else if (ctrl && touche === "h") {
         e.preventDefault();
         this.afficherRecherche(true);
+      } else if (ctrl && e.shiftKey && touche === "o") {
+        e.preventDefault();
+        outils.ocr(this);
       } else if (ctrl && touche === "g") {
         e.preventDefault();
         this.champPage.focus();
