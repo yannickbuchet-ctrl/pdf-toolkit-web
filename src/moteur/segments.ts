@@ -104,7 +104,18 @@ export function decouper(caracteres: CaracterePage[]): Segment[] {
     const derniere = courant[courant.length - 1];
     // MuPDF ouvre une ligne à chaque mot d'un calque OCR (chacun a son étirement) : ses mots sur la même ligne de base
     // forment une seule ligne.
-    const memeLigne = c.ligne === r.ligne || (!!c.ocr && !!r.ocr && Math.abs(c.origineY - r.origineY) < 0.5);
+    let memeLigne = c.ligne === r.ligne || (!!c.ocr && !!r.ocr && Math.abs(c.origineY - r.origineY) < 0.5);
+    // Certains logiciels (pages web imprimées en PDF, par exemple) placent chaque mot, voire chaque ligature, à part :
+    // MuPDF en fait autant de lignes. Ces mots sont remis ensemble quand ils suivent le précédent sur la même ligne de
+    // base, dans le même style et à moins d'un cadratin ; l'espace qui manque entre deux mots est rétablie.
+    const ecart = c.x0 - derniere.x1;
+    if (!memeLigne && !c.ocr && !r.ocr && Math.abs(c.origineY - derniere.origineY) < 0.2 * r.taille &&
+        ecart > -0.1 * r.taille && ecart < r.taille && (blanc(c) || memeStyle(c, r))) {
+      memeLigne = true;
+      if (ecart > 0.15 * r.taille && !blanc(c) && !blanc(derniere)) {
+        courant.push({ ...derniere, code: 0x20, x0: derniere.x1, x1: c.x0, origineX: derniere.x1 });
+      }
+    }
     const loin = c.x0 - derniere.x1 > 3 * r.taille;
     if (!memeLigne || loin) {
       clore();

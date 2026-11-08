@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as mupdf from "mupdf";
 import fs from "node:fs";
-import { ARIAL, arialDisponible, creerPdf, octets, ouvrir, policeCid, policeSimple, policesDesLettres, texteDePage } from "./fabrique";
+import { ARIAL, arialDisponible, creerPdf, type Ligne, octets, ouvrir, policeCid, policeSimple, policesDesLettres, texteDePage } from "./fabrique";
 import { ajouterTexte, modifierTexte, segmentsDePage } from "../src/moteur/texte";
 import { normaliser, famille, chaine, morceaux, nomLisible } from "../src/moteur/polices";
 import { lireTableUnicode, winAnsi } from "../src/moteur/tableUnicode";
@@ -138,5 +138,43 @@ describe("modification du texte", () => {
     const t = texteDePage(relu, 0);
     expect(t).toContain("Ajouté : « été » et Łódź");
     expect(t).toContain("Deuxième ligne");
+  });
+});
+
+describe("mots placés un par un", () => {
+  // Comme certaines pages web imprimées en PDF : chaque mot (et la ligature « fi ») est écrit à part, sans caractère
+  // d'espace, à la position calculée par le navigateur.
+  const helv = new mupdf.Font("Helvetica");
+  const largeur = (t: string, taille: number) => [...t].reduce((s, c) => s + helv.advanceGlyph(helv.encodeCharacter(c.codePointAt(0)!), 0) * taille, 0);
+  function motParMot(mots: string[], x: number, y: number, taille: number, police = "F"): Ligne[] {
+    const lignes: Ligne[] = [];
+    for (const mot of mots) {
+      lignes.push({ police, x, y, taille, texte: mot });
+      x += largeur(mot, taille) + (mot === "fi" ? 0 : 0.28 * taille);
+    }
+    return lignes;
+  }
+  const fabriquer = () => creerPdf([{ lignes: [
+    ...motParMot(["Date", "de", "fi", "n", "du", "contrat", ":", "10/12/2024"], 60, 100, 11),
+    ...motParMot(["Nom", "et", "prénom"], 60, 140, 11),
+    ...motParMot(["Date", "de", "naissance"], 360, 140, 11),
+    ...motParMot(["Total", ":"], 60, 180, 11),
+    ...motParMot(["450", "€"], 60 + largeur("Total", 11) + largeur(":", 11) + 0.56 * 11, 180, 11, "G"),
+  ] }], (doc) => ({ F: policeSimple(doc, helv), G: policeSimple(doc, new mupdf.Font("Helvetica-Bold")) }));
+
+  it("forment un seul morceau par ligne, espaces rétablies, colonnes et styles séparés", () => {
+    const textes = segmentsDePage(fabriquer().loadPage(0)).map((s) => s.texte);
+    expect(textes).toEqual(["Date de fin du contrat : 10/12/2024", "Nom et prénom", "Date de naissance", "Total :", "450 €"]);
+    const s = segmentsDePage(fabriquer().loadPage(0))[0];
+    expect(s.bords).toHaveLength([...s.texte].length);
+  });
+
+  it("se modifient d'un coup, sans laisser de mot de l'ancien texte", () => {
+    const { relu } = modifierEtRelire(fabriquer(), 0, "Date de fin du contrat : 10/12/2024", "Date de fin du contrat : 31/12/2025");
+    const textes = segmentsDePage(relu.loadPage(0)).map((s) => s.texte);
+    expect(textes).toContain("Date de fin du contrat : 31/12/2025");
+    expect(textes.filter((t) => t.startsWith("Date de fin"))).toHaveLength(1);
+    expect(texteDePage(relu, 0)).not.toContain("10/12/2024");
+    expect(textes).toContain("Date de naissance");
   });
 });
