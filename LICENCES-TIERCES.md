@@ -44,6 +44,26 @@ Les textes de la licence LGPL sont dans le paquet npm `libheif-js` (fichiers `LI
 Le code source de ces bibliothèques est publié aux adresses ci-dessus. Celui de PDF Toolkit Web (AGPL) l'est aussi :
 on peut donc reconstruire le site avec une autre version de ces bibliothèques, comme le demande la LGPL.
 
+### Reconnaissance de texte (OCR)
+
+Client Tesseract.js (fichier `src-….js`, quelques Ko), puis, téléchargés seulement à la première reconnaissance de
+texte, les fichiers du dossier `ocr-…/` : `worker.min.js`, une des trois versions de `tesseract-core-…-lstm.wasm.js`
+(selon le processeur) et les données `fra.traineddata.gz` et `eng.traineddata.gz`.
+
+| Composant | Version | Rôle | Licence |
+|---|---|---|---|
+| [Tesseract.js](https://github.com/naptha/tesseract.js) (Jerome Wu, Kevin Kwok, Guillermo Webster, Balearica et contributeurs) | 7.0.0 | client et Web Worker de la reconnaissance | Apache 2.0 |
+| [tesseract.js-core](https://github.com/naptha/tesseract.js-core) | 7.0.0 | Tesseract compilé en WebAssembly | Apache 2.0 |
+| [Tesseract](https://github.com/tesseract-ocr/tesseract) (Google, puis le projet tesseract-ocr), dans une version modifiée par tesseract.js-core | inclus dans tesseract.js-core | moteur de reconnaissance (réseau LSTM) | Apache 2.0 |
+| [Leptonica](http://www.leptonica.org/) (Dan Bloomberg), et les bibliothèques d'images qu'il utilise (zlib, libpng, libjpeg…) | inclus dans tesseract.js-core | lecture et traitement des images | licence Leptonica (de type BSD 2 clauses) ; zlib, libpng, IJG |
+| Données de langue `fra` et `eng` « best_int » : modèles de [tessdata_best](https://github.com/tesseract-ocr/tessdata_best) (Google) convertis en entiers par le projet Tesseract.js, paquets npm `@tesseract.js-data/fra` et `@tesseract.js-data/eng` (dossier `4.0.0_best_int`) | 1.0.0 | ce que Tesseract sait du français et de l'anglais | Apache 2.0 (données) ; MIT (paquets npm) |
+| Inclus dans `worker.min.js` : regenerator-runtime (Facebook), zlib.js (imaya), buffer et ieee754 (Feross Aboukhadijeh), is-url, bmp-js, wasm-feature-detect | — | fonctionnement du Web Worker, décompression des données | MIT ; BSD 3 clauses (ieee754) ; Apache 2.0 (wasm-feature-detect) |
+
+Les textes de la licence Apache 2.0 sont dans les paquets npm `tesseract.js` (`LICENSE.md`) et `tesseract.js-core`
+(`LICENSE`). La liste exacte des bibliothèques compilées dans le moteur WebAssembly est dans le dépôt de
+tesseract.js-core (dossier `third_party`), qui fait foi. La police sans dessin du calque de texte invisible
+(`GlyphLessFont`, 572 octets, dans `src/moteur/ocr.ts`) vient de Tesseract (Apache 2.0), telle que MuPDF l'écrit.
+
 ## Utilisés seulement pour construire le site (non publiés)
 
 | Outil | Rôle | Licence |

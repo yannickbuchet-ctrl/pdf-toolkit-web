@@ -2,7 +2,8 @@
 
 Un éditeur de PDF simple et en français qui fonctionne **entièrement dans votre navigateur** : modifier le texte,
 organiser et assembler les pages, remplir les formulaires, signer, protéger par mot de passe, compresser, créer des
-photos d'identité et comparer deux versions d'un document.
+photos d'identité, comparer deux versions d'un document et rendre un document scanné cherchable (reconnaissance de
+texte).
 
 **Ouvrir le site : <https://yannickbuchet-ctrl.github.io/pdf-toolkit-web/>**
 
@@ -18,8 +19,9 @@ Windows, avec le même moteur : MuPDF.
 - **Aucune statistique, aucun traceur, aucune publicité.** Le site ne charge rien depuis un autre site (pas même une
   police de caractères), et sa politique de sécurité interdit d'envoyer des données ailleurs.
 - **Hors ligne** : une fois le site ouvert une première fois, il continue de fonctionner sans connexion. Seuls les
-  fichiers du site lui-même sont gardés par le navigateur, jamais vos documents. Le lecteur des photos HEIC fait
-  exception : il n'est téléchargé (2 Mo) qu'à la première photo HEIC, puis gardé à son tour.
+  fichiers du site lui-même sont gardés par le navigateur, jamais vos documents. Deux exceptions : le lecteur des
+  photos HEIC n'est téléchargé (2 Mo) qu'à la première photo HEIC, et la reconnaissance de texte (environ 2 Mo, puis
+  3 Mo de plus pour l'anglais, gardés d'office) qu'à sa première utilisation ; ils sont ensuite gardés à leur tour.
 - Fermer l'onglet efface tout : enregistrez votre document avant.
 
 ## Fonctions
@@ -60,6 +62,47 @@ Windows, avec le même moteur : MuPDF.
   respectée. Une photo est mise dans le PDF en JPEG, une image transparente en PNG, et un JPEG droit tel quel. Une
   photo de plus de 16 millions de pixels est réduite à cette taille, qui suffit pour imprimer une page A4 entière en
   haute qualité, et évite de saturer la mémoire d'un téléphone.
+
+### Rendre un scan cherchable (OCR)
+
+Outils → **Reconnaissance de texte (OCR)** (Ctrl+Maj+O). Le texte des pages scannées est lu sur l'image, puis posé
+dessus en **calque invisible**, mot par mot, à la place de chaque mot : la page garde son aspect, mais son texte se
+**cherche** (Ctrl+F, accents compris), se **sélectionne** et se **copie** dans n'importe quel lecteur de PDF, et le
+calque est gardé à l'enregistrement. Rien n'est envoyé : la lecture se fait dans le navigateur, avec le moteur
+[Tesseract](https://github.com/tesseract-ocr/tesseract) compilé en WebAssembly
+([Tesseract.js](https://github.com/naptha/tesseract.js)).
+
+![Recherche dans le texte reconnu d'une page scannée à l'envers, puis redressée](captures/ocr-recherche.png)
+
+- **Pages** : toutes, ou une liste (« 1-3, 7 ») ; **langue** : français (par défaut), anglais, ou les deux.
+- **Ignorer les pages qui contiennent déjà du texte** (coché) : les pages déjà lisibles, ou déjà passées à l'OCR,
+  sont laissées telles quelles. Décochée, une page déjà passée à l'OCR est relue : son ancien texte reconnu est
+  remplacé, jamais ajouté en double.
+- **Redresser les pages scannées à l'envers ou d'un quart de tour** (coché) : une page qui se lit mal est essayée
+  dans les quatre sens, puis pivotée pour s'afficher à l'endroit.
+- La progression s'affiche page par page. **Annuler** arrête la lecture aussitôt : la page en cours n'est pas
+  modifiée, les pages déjà lues gardent leur texte, et relancer l'OCR reprend où elle s'était arrêtée. **Ctrl+Z**
+  annule toute l'opération d'un coup.
+- À la fin, **Copier le texte** ou **Enregistrer en .txt** le texte reconnu, page par page.
+- En mode « Modifier le texte », le texte reconnu, encadré en pointillés gris, **ne se modifie pas** : il est
+  invisible, et un texte réécrit s'afficherait par-dessus l'image. « Remplacer » le laisse aussi tel quel. Pour le
+  corriger, refaites l'OCR de la page.
+- **Première utilisation** : le lecteur (1,5 Mo compressé) et les données du français (0,7 Mo) sont téléchargés depuis
+  ce site, puis gardés avec les données de l'anglais (3 Mo) : l'OCR marche ensuite hors connexion, dans les deux
+  langues.
+
+Limites :
+
+- texte imprimé seulement, en français ou en anglais : l'écriture manuscrite n'est pas lue, et un scan flou, très
+  incliné ou de basse résolution (moins de 200 ppp) donne plus d'erreurs. Sur des scans de synthèse à 300 ppp (Times
+  de 9 à 16 points, bruités, inclinés jusqu'à 1°), moins de 0,5 % des caractères sont faux, accents compris ; un vrai
+  scan en donne davantage ;
+- une page A4 se lit en une à deux secondes sur un ordinateur récent ; la lecture n'a pas été mesurée sur un vrai
+  téléphone, où elle est plus lente ;
+- le texte vertical (sur une page tournée qu'on choisit de ne pas redresser) n'est pas reconnu ;
+- le calque d'OCR posé par un autre logiciel est gardé : relire une telle page, case « Ignorer… » décochée, ajoute le
+  texte de PDF Toolkit à côté du sien ;
+- les pages très grandes (affiches, plans) sont lues à une résolution réduite, pour ménager la mémoire.
 
 ### Organiser et assembler
 
@@ -131,6 +174,9 @@ rétablir, Outils) et une barre en bas de l'écran, sous le pouce, regroupe le r
 | Chercher | rechercher et remplacer |
 | Plus | zoom, ajuster à la largeur, enregistrer sous, imprimer |
 
+La reconnaissance de texte, la fusion, la comparaison et les autres outils sont dans le menu Outils (☰), en haut à
+droite. La fenêtre de l'OCR tient dans l'écran, et sa progression et son bilan restent visibles sous les options.
+
 La page est ajustée à la largeur de l'écran dès l'ouverture ; zoomez à deux doigts. Dans la comparaison, l'affichage
 « Superposées » est choisi d'office et les options se replient après le calcul (bouton « Options et fichiers » pour
 les rouvrir). L'interface suit le mode clair ou sombre de l'appareil.
@@ -144,6 +190,7 @@ les rouvrir). L'interface suit le mode clair ou sombre de l'appareil.
 | Ctrl+F, Ctrl+H | rechercher, rechercher et remplacer |
 | F3, Maj+F3 | occurrence ou différence suivante, précédente |
 | Ctrl+G | aller à une page |
+| Ctrl+Maj+O | reconnaissance de texte (OCR) |
 | Ctrl+plus, Ctrl+moins, Ctrl+0 | zoom avant, arrière, 100 % |
 | T | mode « Modifier le texte » |
 | Échap | revenir à la lecture, annuler une saisie |
@@ -177,6 +224,13 @@ Un navigateur protège votre ordinateur : un site ne peut pas tout faire. Voici 
   d'un très grand bloc n'est pas comparé mot à mot (cela prendrait des minutes) : il est signalé comme supprimé et
   ajouté, page par page. Un même texte simplement coupé autrement en lignes, lui, est toujours comparé mot à mot.
 - **Comparaison en cours** : elle ne peut pas être interrompue.
+- **Reconnaissance de texte (OCR)** : même moteur (Tesseract, ici par Tesseract.js), mêmes données de langue, mêmes
+  réglages et même calque que sur Windows. Un PDF passé à l'OCR sur l'un est reconnu par l'autre, dans les deux sens
+  (vérifié) : son texte se cherche, ne se modifie pas, et la relecture remplace son calque au lieu de le doubler.
+  Différences : la fenêtre ne gèle pas pendant la lecture, et Annuler arrête aussitôt (et non à la fin de la page) ;
+  il n'y a pas de traitement par lots en ligne de commande (`--ocr`). Les fichiers de l'OCR ne sont pas téléchargés
+  au premier chargement du site : sans connexion, l'OCR ne marche qu'après une première utilisation en ligne (un
+  message le dit).
 - **Comparaison superposée** : elle s'affiche une fois la comparaison faite (sous Windows, dès l'ouverture des deux
   fichiers). Une page présente dans une seule version y est montrée seule, au lieu d'être omise.
 - **Rapport de comparaison** : il est écrit en Helvetica, la police standard des PDF, au lieu d'Arial : les flèches y
@@ -189,7 +243,8 @@ Le site vise les versions récentes de **Chrome, Edge, Firefox et Safari**, sur 
 il a besoin de WebAssembly, des Web Workers et des modules JavaScript dans les workers, présents dans tous ces
 navigateurs depuis 2023. Il a été essayé avec Chromium ; Firefox et Safari n'ont pas encore été essayés. Le premier
 chargement télécharge le moteur MuPDF : environ 5 Mo si le serveur le compresse (c'est le cas de GitHub Pages),
-10 Mo sinon.
+10 Mo sinon. La reconnaissance de texte ajoute, à sa première utilisation, 2 Mo (4 Mo sans compression), puis 3 Mo
+pour les données de l'anglais.
 
 ## Licence
 
@@ -207,6 +262,8 @@ Licences des composants tiers : [LICENCES-TIERCES.md](LICENCES-TIERCES.md).
 - [MuPDF et MuPDF.js](https://mupdf.com/) (Artifex Software, AGPL) pour le traitement des PDF.
 - [libheif](https://github.com/strukturag/libheif) et libde265 (struktur AG, LGPL), par
   [libheif-js](https://github.com/catdad-experiments/libheif-js), pour les photos HEIC.
+- Reconnaissance de texte : [Tesseract](https://github.com/tesseract-ocr/tesseract), par
+  [Tesseract.js](https://github.com/naptha/tesseract.js), et ses données de langue (Apache 2.0).
 
 ---
 
@@ -245,7 +302,15 @@ npm run build                         # vérification TypeScript, puis construct
 npx playwright install chromium       # une seule fois : navigateur sans fenêtre
 node scripts/parcours-navigateur.mjs  # parcours dans le site construit, captures dans captures/
 node scripts/essai-images.mjs         # formats de photo dans le site construit (dist/essai-images/)
+node scripts/essai-ocr.mjs            # reconnaissance de texte dans le site construit (captures/ocr-*.png)
 ```
+
+`scripts/essai-ocr.mjs` passe à l'OCR, dans Chromium, un PDF de trois pages fabriqué pour l'essai (un scan accentué,
+une page de vrai texte, un scan à l'envers), puis vérifie : bilan, page déjà textuelle laissée telle quelle, page
+redressée, recherche sans accents, texte reconnu non modifiable ni remplaçable, Ctrl+Z et Ctrl+Y, OCR refaite sans
+doublon, arrêt en cours de lecture, Ctrl+Maj+O, texte copié et enregistré en .txt, PDF enregistré relu. Puis sur
+téléphone, et hors connexion après une première utilisation (en français, puis en anglais). Il vérifie aussi que les
+fichiers de l'OCR ne sont téléchargés qu'à sa première utilisation, et qu'aucune requête ne quitte le site.
 
 `scripts/essai-images.mjs` insère dans Chromium une photo HEIC d'iPhone (sur ordinateur et sur téléphone), un TIFF,
 une photo JPEG de 24 Mpx tournée par son EXIF, un PNG transparent et une photo HEIC déposée sans type de fichier,
@@ -258,7 +323,10 @@ Les tests créent leurs propres PDF (aucun document personnel n'est utilisé) et
 modification du texte (police standard, police intégrée complète, police réduite, TrueType, accents, page pivotée),
 pages, fusion, mots de passe, compression, formulaires, annotations, recherche, dimensions exactes des photos
 d'identité et lecture sûre de leurs réglages, comparaison et rapport, formats d'image (reconnaissance du format,
-photo HEIC tournée lue par libheif, TIFF et JPEG en CMJN convertis par MuPDF). La seule image d'essai enregistrée,
+photo HEIC tournée lue par libheif, TIFF et JPEG en CMJN convertis par MuPDF), reconnaissance de texte avec
+Tesseract.js dans Node, sur des scans de synthèse (`tests/scan.ts`) : accents, bruit et inclinaison, page pivotée par
+le fichier, page à l'envers redressée, page déjà textuelle ignorée, OCR refaite sans doublon, arrêt puis reprise,
+page blanche, page inchangée à l'affichage. La seule image d'essai enregistrée,
 `tests/images/quadrants-quart-de-tour.heic`, est un damier de quatre couleurs fabriqué avec pillow-heif.
 
 Si le dossier `Exemples Gerber` existe à côté du projet (deux révisions d'une carte de circuit imprimé, avec la liste
@@ -283,6 +351,12 @@ Le service worker (`public/sw.js`) n'est actif que sur HTTPS ou `localhost`. À 
 (hors ligne dès la première visite), et donne à son cache un nom tiré de cette liste : chaque nouvelle version
 remplace l'ancienne, sans rien changer à la main. Le lecteur HEIC est laissé hors de la liste.
 
+Les fichiers de la reconnaissance de texte sont copiés par `vite.config.ts` depuis `node_modules` dans un dossier
+`dist/ocr-<empreinte>/` (le nom change avec leur contenu) : le Web Worker de Tesseract.js, son moteur WebAssembly en
+trois versions (le navigateur n'en télécharge qu'une, selon son processeur) et les données `fra` et `eng`
+(`@tesseract.js-data`, modèles « best_int »). `hors-ligne.json` les liste à part (`ocr`) : le service worker ne les
+garde qu'à la première reconnaissance de texte. En développement, `npm run dev` les sert depuis `node_modules`.
+
 ### Déployer sur GitHub Pages
 
 Le fichier `.github/workflows/pages.yml` teste, construit et publie le site sur GitHub Pages. Il ne se lance que
@@ -299,10 +373,13 @@ manuellement (onglet « Actions » → « Publier sur GitHub Pages » → « Run
 | `src/moteur/` | logique PDF avec MuPDF : texte (`texte.ts`, `polices.ts`, `segments.ts`, `tableUnicode.ts`), document et pages, compression, photos d'identité, comparaison et rapport, images que le navigateur ne lit pas (`images.ts`), reconnaissance du format d'une image (`formatImage.ts`) |
 | `src/worker.ts` | le moteur dans un Web Worker : documents ouverts, annuler et rétablir |
 | `src/heic.worker.ts` | le lecteur de photos HEIC (libheif en WebAssembly), dans un Web Worker créé à la demande |
+| `src/moteur/ocr.ts`, `src/moteur/ocrLecture.ts` | reconnaissance de texte : image des pages et calque invisible (MuPDF) ; lignes, sens de lecture, déroulé et bilan (sans MuPDF) |
+| `src/ui/ocr.ts` | la fenêtre de l'OCR et Tesseract.js, chargés à la première utilisation |
 | `src/ui/` | l'interface : application, outils et fenêtres, lecture des images (`images.ts`), photos d'identité, comparaison |
-| `tests/` | tests Vitest, fabrique de PDF de test, photo HEIC d'essai (`tests/images/`) |
+| `tests/` | tests Vitest, fabrique de PDF de test, scans de synthèse (`scan.ts`), photo HEIC d'essai (`tests/images/`) |
 | `scripts/parcours-navigateur.mjs` | parcours dans Chromium sans fenêtre |
 | `scripts/essai-images.mjs` | formats de photo dans Chromium sans fenêtre |
+| `scripts/essai-ocr.mjs` | reconnaissance de texte dans Chromium sans fenêtre |
 | `public/` | service worker, manifeste et icône |
 
 À noter pour MuPDF.js 1.28 (vérifié par les tests) : enregistrer le document de travail avec des options
