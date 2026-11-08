@@ -35,18 +35,22 @@ export function accueil(app: Application): HTMLElement {
     el("p", { style: { margin: "0", fontSize: "1.1rem" } }, el("strong", { text: "Glissez un PDF ici" }), " ou"),
     ouvrir,
     el("p", { class: "aide", style: { margin: "0" }, text: "Déposez plusieurs PDF pour les fusionner, ou une photo pour en faire des photos d’identité." }));
+  // Une fonction de l'accueil ouvre d'abord un PDF, puis lance directement l'outil choisi.
+  const puis = (outil: () => unknown) => async () => {
+    if (await app.ouvrirDialogue()) await outil();
+  };
   const fonction = (ic: string, titre: string, texte: string, action: () => void) =>
     el("button", { type: "button", class: "fonction", onclick: action }, el("span", { html: icone(ic) }), el("div", {}, el("strong", { text: titre }), el("span", { text: texte })));
   const fonctions = el("div", { class: "fonctions" },
-    fonction("texte", "Modifier le texte", "Cliquez sur un texte pour le réécrire, dans sa police d’origine quand c’est possible.", () => app.ouvrirDialogue()),
+    fonction("texte", "Modifier le texte", "Cliquez sur un texte pour le réécrire, dans sa police d’origine quand c’est possible.", puis(() => app.definirMode("texte"))),
     fonction("fusion", "Fusionner des PDF", "Assemblez plusieurs fichiers dans l’ordre de votre choix.", () => fusion(app)),
-    fonction("pages", "Organiser les pages", "Pivoter, déplacer, supprimer, extraire ou insérer des pages.", () => app.ouvrirDialogue()),
+    fonction("pages", "Organiser les pages", "Pivoter, déplacer, supprimer, extraire ou insérer des pages.", puis(() => app.organiserPages())),
     fonction("comparer", "Comparer deux PDF", "Différences de texte mot à mot et différences visuelles, côte à côte, avec rapport.", () => comparer(app)),
-    fonction("ocr", "Reconnaissance de texte (OCR)", "Le texte d’un document scanné se cherche, se sélectionne et se copie.", () => app.ouvrirDialogue()),
+    fonction("ocr", "Reconnaissance de texte (OCR)", "Le texte d’un document scanné se cherche, se sélectionne et se copie.", puis(() => ocr(app))),
     fonction("photo", "Photos d’identité", "Une planche aux dimensions exactes, à imprimer sans mise à l’échelle.", () => photoIdentite(app)),
-    fonction("signature", "Signer et annoter", "Signature, image, surlignage, notes, dessin et formulaires.", () => app.ouvrirDialogue()),
-    fonction("compresser", "Compresser", "Réduisez la taille d’un PDF pour l’envoyer par e-mail.", () => app.ouvrirDialogue()),
-    fonction("cadenas", "Mots de passe", "Ouvrez un PDF protégé, ajoutez ou retirez une protection AES 256 bits.", () => app.ouvrirDialogue()),
+    fonction("signature", "Signer et annoter", "Signature, image, surlignage, notes, dessin et formulaires.", puis(() => signature(app))),
+    fonction("compresser", "Compresser", "Réduisez la taille d’un PDF pour l’envoyer par e-mail.", puis(() => compresserEtEnregistrer(app))),
+    fonction("cadenas", "Mots de passe", "Ouvrez un PDF protégé, ajoutez ou retirez une protection AES 256 bits.", puis(() => motDePasse(app))),
   );
   return el("div", { class: "accueil" },
     el("div", { class: "contenu" },

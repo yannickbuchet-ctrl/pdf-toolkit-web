@@ -268,20 +268,21 @@ export class Application {
 
   /* --- Fichiers ------------------------------------------------------------------------------------------------- */
 
-  async ouvrirDialogue() {
-    if (!(await this.peutQuitter())) return;
+  /** Choisit un PDF et l'ouvre ; true s'il a été ouvert. */
+  async ouvrirDialogue(): Promise<boolean> {
+    if (!(await this.peutQuitter())) return false;
     const w = window as unknown as { showOpenFilePicker?: (o: unknown) => Promise<FileSystemFileHandle[]> };
     if (w.showOpenFilePicker) {
       try {
         const [poignee] = await w.showOpenFilePicker({ types: [{ description: "Documents PDF", accept: { "application/pdf": [".pdf"] } }], excludeAcceptAllOption: false });
-        await this.ouvrirFichier(await poignee.getFile(), poignee);
+        return await this.ouvrirFichier(await poignee.getFile(), poignee);
       } catch (e) {
         if ((e as DOMException).name !== "AbortError") this.erreur(e, "Ouverture impossible");
       }
-      return;
+      return false;
     }
     const [f] = await choisirFichiers("application/pdf,.pdf");
-    if (f) await this.ouvrirFichier(f, null);
+    return f ? await this.ouvrirFichier(f, null) : false;
   }
 
   /** Demande le mot de passe d'un PDF protégé, autant de fois que nécessaire. null : l'utilisateur renonce. */
@@ -301,15 +302,16 @@ export class Application {
     }
   }
 
-  async ouvrirFichier(fichier: File, poignee: FileSystemFileHandle | null) {
-    if (!estPdf(fichier) && !(await confirmer("Ouvrir ce fichier ?", `« ${fichier.name} » ne semble pas être un PDF. Essayer quand même ?`, "Essayer"))) return;
+  /** Ouvre un PDF ; true s'il a été ouvert. */
+  async ouvrirFichier(fichier: File, poignee: FileSystemFileHandle | null): Promise<boolean> {
+    if (!estPdf(fichier) && !(await confirmer("Ouvrir ce fichier ?", `« ${fichier.name} » ne semble pas être un PDF. Essayer quand même ?`, "Essayer"))) return false;
     const octets = await lire(fichier);
     this.message(`Ouverture de « ${fichier.name} »…`, "info", 0);
     try {
       const r = await this.avecMotDePasse(fichier.name, (motDePasse) => appel("ouvrir", { octets: octets.slice(), nom: fichier.name, motDePasse }));
       if (!r) {
         this.message("");
-        return;
+        return false;
       }
       this.fichier = { nom: fichier.name, poignee };
       this.modifie = false;
@@ -320,9 +322,18 @@ export class Application {
       if (r.restrictions) msg += " Ce PDF limitait certains droits (impression, copie…) : ces limites seront retirées à l’enregistrement.";
       if (r.etat.planche) msg += " C’est une planche de photos d’identité : Outils → Modifier la planche.";
       this.message(msg, "succes");
+      return true;
     } catch (e) {
       this.erreur(e, `Impossible d’ouvrir « ${fichier.name} »`);
+      return false;
     }
+  }
+
+  /** « Organiser les pages » : les miniatures en grille (sur téléphone, le panneau des pages ouvert). */
+  organiserPages() {
+    if (Application.etroit()) {
+      if (!this.corps.classList.contains("miniatures-ouvertes")) this.basculerMiniatures();
+    } else if (!this.corps.classList.contains("grille")) this.basculerGrille();
   }
 
   /** Ouvre un PDF produit par l'application (fusion, planche) à la place du document. */
