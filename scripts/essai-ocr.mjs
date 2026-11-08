@@ -94,6 +94,7 @@ const erreurs = [];
 const externes = [];
 const bilan = [];
 const fichiersOcr = [];
+let horsLigneAttendu = false;
 const surveiller = (contexte, nom) => {
   contexte.on("request", (r) => {
     const u = new URL(r.url());
@@ -102,7 +103,8 @@ const surveiller = (contexte, nom) => {
   });
   contexte.on("page", (page) => {
     page.on("pageerror", (e) => erreurs.push(`${nom} : ${e.message}`));
-    page.on("console", (m) => m.type() === "error" && erreurs.push(`${nom} console : ${m.text()}`));
+    // Hors connexion avant la première utilisation, le worker de Tesseract ne se charge pas : erreur attendue.
+    page.on("console", (m) => m.type() === "error" && !(horsLigneAttendu && /ERR_INTERNET_DISCONNECTED|Failed to (fetch|load)/.test(m.text())) && erreurs.push(`${nom} console : ${m.text()}`));
   });
 };
 
@@ -319,6 +321,19 @@ try {
   await tel.waitForFunction(() => !!navigator.serviceWorker?.controller, null, { timeout: 15000 }).catch(() => {});
   await tel.waitForTimeout(1000);
   verifier(fichiersOcr.length === avantTel, "téléphone : fichiers de l'OCR téléchargés avant son utilisation");
+  // Hors connexion avant toute utilisation : l'OCR ne peut pas marcher, un message le dit.
+  if (await tel.evaluate(() => !!navigator.serviceWorker?.controller)) {
+    horsLigneAttendu = true;
+    await mobile.setOffline(true);
+    dialogue = await fenetreOcr(tel, true);
+    const [jamais] = await lancer(tel, dialogue, true);
+    bilan.push(`Téléphone hors connexion, avant toute utilisation : ${jamais}`);
+    verifier(jamais.startsWith("Le lecteur de texte et les données du français n’ont pas pu être chargés."), `hors connexion avant toute utilisation : ${jamais}`);
+    verifier(await tel.evaluate(() => !document.querySelector(".page .calque .morceau")), "le document ne doit pas changer");
+    await dialogue.locator("footer").getByRole("button", { name: "Fermer", exact: true }).tap();
+    await mobile.setOffline(false);
+    horsLigneAttendu = false;
+  }
   dialogue = await fenetreOcr(tel, true);
   const boite = await dialogue.boundingBox();
   verifier(boite.x >= 0 && boite.x + boite.width <= 390 && boite.height <= 844, `fenêtre hors de l'écran : ${JSON.stringify(boite)}`);

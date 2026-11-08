@@ -299,6 +299,6 @@ export function resumeOcr(bilan: BilanOcr, interrompue = false): string {
 /** Message des données de langue introuvables (fichier absent du site, ou hors connexion avant toute utilisation). */
 export function messageLangueAbsente(codes: string[]): string {
   const noms = codes.map((c) => NOMS_LANGUES[c] ?? `de la langue « ${c} »`).join(" et ");
-  return `Les données de reconnaissance ${noms} n’ont pas pu être chargées. Sans connexion, elles ne sont disponibles ` +
-    "qu’après une première reconnaissance de texte faite en ligne. Reconnectez-vous, ou choisissez une autre langue.";
+  return `Le lecteur de texte et les données ${noms} n’ont pas pu être chargés. Sans connexion, ils ne sont disponibles ` +
+    "qu’après une première reconnaissance de texte faite en ligne : reconnectez-vous, puis relancez.";
 }

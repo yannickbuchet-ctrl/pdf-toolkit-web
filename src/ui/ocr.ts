@@ -61,8 +61,11 @@ class Lecteur {
     } catch (e) {
       chargement.then((t) => t.terminate(), () => {});
       if (e instanceof Arret) throw e;
-      throw new ErreurOcr(/fetch|network|réseau|404|load/i.test(String(e)) ? messageLangueAbsente(langue.split("+"))
-        : `Le lecteur de texte n’a pas pu démarrer (${e instanceof Error ? e.message : String(e)}).`);
+      // Un fichier qui manque (hors connexion avant la première utilisation) : le worker ne se charge pas (erreur sans
+      // message), ou les données de langue ne se téléchargent pas (« Network error while fetching… »).
+      const texte = e instanceof Error ? e.message : String(e ?? "");
+      throw new ErreurOcr(!navigator.onLine || !texte || texte === "undefined" || /fetch|network|404|load/i.test(texte)
+        ? messageLangueAbsente(langue.split("+")) : `Le lecteur de texte n’a pas pu démarrer (${texte}).`);
     }
     await lecteur.travailleur.setParameters({ tessedit_pageseg_mode: "3" as never });
     return lecteur;
@@ -219,8 +222,9 @@ export async function reconnaissanceTexte(app: Application) {
       lecteur = await Lecteur.creer(langue.value, (m) => avancer(0, m), arret);
       fini = await reconnaitre(moteur, lecteur.lire, pages, { passerTexte: passer.checked, redresser: redresser.checked }, avancer, bilan, () => arrete);
     } catch (e) {
-      if (!(e instanceof Arret)) {
-        statut.textContent = e instanceof ErreurOcr ? e.message : `La reconnaissance de texte a échoué : ${(e as Error).message ?? e}`;
+      if (e instanceof ErreurOcr) statut.textContent = e.message;
+      else if (!(e instanceof Arret)) {
+        statut.textContent = `La reconnaissance de texte a échoué : ${(e as Error).message ?? e}`;
         console.error(e);
       }
     } finally {
