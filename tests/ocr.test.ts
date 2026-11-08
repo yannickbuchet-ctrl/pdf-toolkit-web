@@ -173,6 +173,19 @@ describe("reconnaissance de texte (OCR)", () => {
     expect(texteExporte(suite.bilan)).toMatch(/^— Page 2 —\n.*château.*\n\n— Page 3 —\n/s);
   });
 
+  it("lit un document qui mêle le français et l'anglais", async () => {
+    const lignes: [number, string][] = [[14, "The committee agreed that the library will open in spring."], [12, "Le comité a décidé que la bibliothèque ouvrira au printemps."]];
+    const doc = scan({ lignes, bruit: 0.002 });
+    const deux = await lecteurTesseract("fra+eng");
+    try {
+      const bilan = bilanVide();
+      await reconnaitre(moteurDe(doc), deux.lire, [0], OPTIONS, () => {}, bilan);
+      expect(tauxErreur(bilan.textes[0], lignes.map(([, t]) => t).join(" "))).toBeLessThan(0.03);
+    } finally {
+      await deux.fin();
+    }
+  });
+
   it("signale une page blanche", async () => {
     const doc = scan({ lignes: [] });
     const { bilan } = await ocr(doc);

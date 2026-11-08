@@ -326,7 +326,7 @@ d'identité et lecture sûre de leurs réglages, comparaison et rapport, formats
 photo HEIC tournée lue par libheif, TIFF et JPEG en CMJN convertis par MuPDF), reconnaissance de texte avec
 Tesseract.js dans Node, sur des scans de synthèse (`tests/scan.ts`) : accents, bruit et inclinaison, page pivotée par
 le fichier, page à l'envers redressée, page déjà textuelle ignorée, OCR refaite sans doublon, arrêt puis reprise,
-page blanche, page inchangée à l'affichage. La seule image d'essai enregistrée,
+page blanche, page inchangée à l'affichage, français et anglais ensemble. La seule image d'essai enregistrée,
 `tests/images/quadrants-quart-de-tour.heic`, est un damier de quatre couleurs fabriqué avec pillow-heif.
 
 Si le dossier `Exemples Gerber` existe à côté du projet (deux révisions d'une carte de circuit imprimé, avec la liste
