@@ -12,8 +12,15 @@
     <link rel="manifest" href="./manifest.webmanifest" />
   </head>
   <body>
-    <a class="evitement" href="#visionneuse">Aller au document</a>
-    <div id="application"></div>
+    <!-- Styles en ligne : si la feuille de style ou le script ne se chargent pas (erreur passagère du serveur), le lien
+         d'évitement reste caché et un message explique quoi faire, au lieu d'une page presque vide. -->
+    <a class="evitement" href="#visionneuse" style="position: absolute; left: -9999px">Aller au document</a>
+    <div id="application">
+      <div class="chargement-initial" style="max-width: 36em; margin: 15vh auto; padding: 0 20px; font: 16px/1.5 system-ui, sans-serif; text-align: center">
+        <p style="font-size: 1.2em; font-weight: 600">Chargement de PDF Toolkit Web…</p>
+        <p>Si ce message reste affiché, une partie du site n’a pas pu être téléchargée : <strong>rechargez la page</strong> (F5, ou tirez la page vers le bas sur un téléphone).</p>
+      </div>
+    </div>
     <noscript>
       <p class="sans-script">PDF Toolkit Web a besoin de JavaScript : tout le traitement des PDF se fait dans votre navigateur.</p>
     </noscript>

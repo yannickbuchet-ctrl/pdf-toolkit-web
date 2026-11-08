@@ -3,6 +3,7 @@ import { Application } from "./ui/app";
 import { moteurPret } from "./ui/moteur";
 
 const racine = document.getElementById("application")!;
+racine.replaceChildren(); // message « Chargement… » de index.html, affiché seulement si le script ne se charge pas
 const app = new Application(racine);
 app.message("Chargement du moteur PDF…", "info", 0);
 moteurPret.then(() => app.message("Prêt. Ouvrez ou déposez un PDF.", "info", 5000));

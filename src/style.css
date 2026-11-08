@@ -54,7 +54,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 a { color: var(--accent); }
 
 .evitement { position: absolute; left: -9999px; top: 0; z-index: 100; background: var(--surface); padding: 8px 12px; }
-.evitement:focus { left: 8px; top: 8px; }
+.evitement:focus { left: 8px !important; top: 8px; }
 .sans-script { padding: 24px; }
 .visuellement-cache { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 

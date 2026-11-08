@@ -47,6 +47,19 @@ function garderOcr() {
   return ocrGardee;
 }
 
+/** Télécharge un fichier du site ; une erreur passagère du serveur (5xx) ou du réseau est réessayée deux fois. */
+async function telecharger(requete) {
+  for (let essai = 0; ; essai++) {
+    try {
+      const reponse = await fetch(requete);
+      if (reponse.status < 500 || essai >= 2) return reponse;
+    } catch (erreur) {
+      if (essai >= 2) throw erreur;
+    }
+    await new Promise((fin) => setTimeout(fin, 400 * (essai + 1)));
+  }
+}
+
 self.addEventListener("fetch", (e) => {
   const requete = e.request;
   const url = new URL(requete.url);
@@ -64,7 +77,7 @@ self.addEventListener("fetch", (e) => {
   // Les autres fichiers ont un nom qui change à chaque version : la copie gardée suffit. ignoreVary : un fichier
   // gardé à l'installation (requête sans en-tête Origin) doit servir aussi aux scripts de la page (avec Origin), même
   // si le serveur répond « Vary: Origin ».
-  e.respondWith(caches.match(requete, { ignoreVary: true }).then((gardee) => gardee || fetch(requete).then((r) => {
+  e.respondWith(caches.match(requete, { ignoreVary: true }).then((gardee) => gardee || telecharger(requete).then((r) => {
     if (r.ok) {
       const copie = r.clone();
       caches.open(CACHE).then((c) => c.put(requete, copie));
