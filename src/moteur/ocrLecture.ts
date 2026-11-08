@@ -302,3 +302,41 @@ export function messageLangueAbsente(codes: string[]): string {
   return `Le lecteur de texte et les données ${noms} n’ont pas pu être chargés. Sans connexion, ils ne sont disponibles ` +
     "qu’après une première reconnaissance de texte faite en ligne : reconnectez-vous, puis relancez.";
 }
+
+// Lettres accentuées ramenées à leur lettre de base, une pour une (même longueur, pour garder les positions) : la
+// recherche dans le texte reconnu ignore les accents, que l'OCR lit parfois mal.
+const AVEC_ACCENTS = "àáâãäåçèéêëìíîïñòóôõöùúûüýÿÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜÝŸ’";
+const SANS_ACCENTS = "aaaaaaceeeeiiiinooooouuuuyyAAAAAACEEEEIIIINOOOOOUUUUYY'";
+
+/** Texte en minuscules et sans accents, de même longueur, pour une recherche tolérante. */
+export function texteReplie(texte: string): string {
+  let r = "";
+  for (const c of texte) {
+    const k = AVEC_ACCENTS.indexOf(c);
+    r += k >= 0 ? SANS_ACCENTS[k] : c;
+  }
+  return r.toLowerCase();
+}
+
+export interface OccurrenceOcr {
+  page: number;
+  debut: number;
+  fin: number;
+  /** Rang de l'occurrence dans sa page (0 pour la première). */
+  rang: number;
+}
+
+/** Occurrences d'un mot dans le texte reconnu, page par page, sans tenir compte des majuscules ni des accents. */
+export function chercherTexteOcr(textes: Record<number, string>, aiguille: string): OccurrenceOcr[] {
+  const cherche = texteReplie(aiguille.trim());
+  const occurrences: OccurrenceOcr[] = [];
+  if (!cherche) return occurrences;
+  for (const page of Object.keys(textes).map(Number).sort((a, b) => a - b)) {
+    const texte = texteReplie(textes[page]);
+    let rang = 0;
+    for (let k = texte.indexOf(cherche); k >= 0; k = texte.indexOf(cherche, k + 1)) {
+      occurrences.push({ page, debut: k, fin: k + cherche.length, rang: rang++ });
+    }
+  }
+  return occurrences;
+}

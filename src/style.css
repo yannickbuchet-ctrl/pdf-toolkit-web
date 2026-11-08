@@ -313,6 +313,14 @@ dialog legend { padding: 0 4px; font-weight: 600; }
 .choix-pages .entree { flex: 1 1 8em; min-width: 6em; }
 dialog.ocr .barre-progression { margin: 10px 0 4px; }
 .statut-ocr { min-height: 1.4em; margin: 8px 0 0; overflow-wrap: anywhere; }
+.recherche-ocr { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.recherche-ocr .entree { flex: 1 1 14em; }
+.recherche-ocr .compte { min-width: 9em; color: var(--texte-2); }
+.texte-ocr { border: 1px solid var(--bord); border-radius: 8px; padding: 4px 14px 12px; max-height: 58dvh; overflow: auto; }
+.texte-ocr h3 { font-size: 0.95rem; margin: 12px 0 4px; color: var(--accent); }
+.page-ocr { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+.texte-ocr mark { background: #fde68a; color: #111827; border-radius: 2px; }
+.texte-ocr mark.courante { background: #f97316; color: #fff; }
 .legende { display: flex; flex-wrap: wrap; gap: 10px; font-size: 0.9em; }
 .legende span { display: inline-flex; align-items: center; gap: 4px; }
 .legende i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; box-shadow: 0 0 0 1px var(--bord); }

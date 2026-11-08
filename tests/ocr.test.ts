@@ -213,3 +213,16 @@ describe("OCR : saisie et sens de lecture", () => {
     expect(lignesOcr(mots).map((l) => l.mots.map((m) => m[2]))).toEqual([["Total"]]);
   });
 });
+
+describe("recherche dans le texte reconnu", async () => {
+  const { chercherTexteOcr, texteReplie } = await import("../src/moteur/ocrLecture");
+  it("ignore majuscules et accents, garde les positions et le rang dans la page", () => {
+    expect(texteReplie("Déjà Œuf’s")).toHaveLength("Déjà Œuf’s".length);
+    const textes = { 0: "La séance est ouverte.\nFin de SEANCE.", 2: "Une séance ; deux séances." };
+    const o = chercherTexteOcr(textes, " seance ");
+    expect(o.map((x) => [x.page, x.rang])).toEqual([[0, 0], [0, 1], [2, 0], [2, 1]]);
+    expect(textes[0].slice(o[1].debut, o[1].fin)).toBe("SEANCE");
+    expect(textes[2].slice(o[2].debut, o[2].fin)).toBe("séance");
+    expect(chercherTexteOcr(textes, "   ")).toEqual([]);
+  });
+});

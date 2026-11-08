@@ -82,7 +82,10 @@ calque est gardé à l'enregistrement. Rien n'est envoyé : la lecture se fait d
 - La progression s'affiche page par page. **Annuler** arrête la lecture aussitôt : la page en cours n'est pas
   modifiée, les pages déjà lues gardent leur texte, et relancer l'OCR reprend où elle s'était arrêtée. **Ctrl+Z**
   annule toute l'opération d'un coup.
-- À la fin, **Copier le texte** ou **Enregistrer en .txt** le texte reconnu, page par page.
+- À la fin, **Voir le résultat…** ouvre le texte reconnu, page par page, dans une fenêtre où **chercher un mot**
+  (sans tenir compte des majuscules ni des accents ; Entrée et Maj+Entrée passent d'une occurrence à l'autre).
+  **Montrer dans le document** referme la fenêtre et surligne le mot sur le scan. Le texte reconnu peut aussi être
+  **copié** ou **enregistré en .txt**.
 - En mode « Modifier le texte », le texte reconnu, encadré en pointillés gris, **ne se modifie pas** : il est
   invisible, et un texte réécrit s'afficherait par-dessus l'image. « Remplacer » le laisse aussi tel quel. Pour le
   corriger, refaites l'OCR de la page.

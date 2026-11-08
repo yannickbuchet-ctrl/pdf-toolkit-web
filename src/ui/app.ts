@@ -1351,6 +1351,21 @@ export class Application {
     if (reinitialiser && this.occurrenceCourante >= 0) this.montrerOccurrence();
   }
 
+  /** Depuis le texte reconnu : recherche du document sur ce mot (sans majuscules ni accents), à la même occurrence
+   * de la même page, surlignée sur le scan. */
+  async montrerMotOcr(mot: string, page: number, rang: number) {
+    this.afficherRecherche();
+    this.champRecherche!.value = mot;
+    this.caseCasse!.checked = false;
+    this.caseAccents!.checked = false;
+    await this.lancerRecherche(false);
+    const surPage = this.occurrences.map((o, k) => (o.page === page ? k : -1)).filter((k) => k >= 0);
+    if (surPage.length) {
+      this.occurrenceCourante = surPage[Math.min(rang, surPage.length - 1)];
+      this.montrerOccurrence();
+    } else this.allerA(page);
+  }
+
   majCompte() {
     if (!this.compteRecherche) return;
     const n = this.occurrences.length;

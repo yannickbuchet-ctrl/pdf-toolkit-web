@@ -13,7 +13,7 @@ import { appel } from "./moteur";
 import { el, fenetre, pluriel, telecharger } from "./dom";
 import { icone } from "./icones";
 import {
-  bilanVide, ErreurOcr, LANGUES_OCR, lirePlages, messageLangueAbsente, motsDeTesseract, reconnaitre, resumeOcr, texteExporte,
+  bilanVide, chercherTexteOcr, ErreurOcr, LANGUES_OCR, lirePlages, messageLangueAbsente, motsDeTesseract, reconnaitre, resumeOcr, texteExporte,
   type BilanOcr, type ImageOcr, type LecteurOcr, type MoteurOcr, type PageTesseract,
 } from "../moteur/ocrLecture";
 
@@ -138,11 +138,12 @@ export async function reconnaissanceTexte(app: Application) {
       el("span", { class: "indication", text: "Une page qui se lit mal est essayée dans les quatre sens, puis pivotée pour s’afficher à l’endroit si elle se lit mieux autrement." }))),
     progression, statut);
 
+  const voir = el("button", { type: "button", class: "bouton cadre", hidden: true, title: "Ouvrir le texte reconnu, page par page, et y chercher un mot", html: `${icone("chercher")}<span>Voir le résultat…</span>` });
   const copier = el("button", { type: "button", class: "bouton cadre", hidden: true, title: "Copier dans le presse-papiers le texte reconnu, page par page", html: `${icone("liste")}<span>Copier le texte</span>` });
   const exporter = el("button", { type: "button", class: "bouton cadre", hidden: true, html: `${icone("telecharger")}<span>Enregistrer en .txt</span>` });
   const fermer = el("button", { type: "button", class: "bouton cadre", text: "Fermer" });
   const lancer = el("button", { type: "button", class: "bouton principal", text: "Lancer" });
-  f.pied.append(copier, exporter, el("span", { style: { flex: "1" } }), fermer, lancer);
+  f.pied.append(voir, copier, exporter, el("span", { style: { flex: "1" } }), fermer, lancer);
 
   let enCours: { arreter: () => void } | null = null;
   let bilan: BilanOcr | null = null;
@@ -158,6 +159,11 @@ export async function reconnaissanceTexte(app: Application) {
   });
   f.dialog.addEventListener("close", () => enCours?.arreter());
 
+  let ouvrirResultat = false;
+  voir.addEventListener("click", () => {
+    ouvrirResultat = true;
+    f.fermer();
+  });
   copier.addEventListener("click", async () => {
     if (!bilan) return;
     try {
@@ -184,7 +190,7 @@ export async function reconnaissanceTexte(app: Application) {
       return;
     }
     controles.forEach((c) => (c.disabled = true));
-    copier.hidden = exporter.hidden = true;
+    voir.hidden = copier.hidden = exporter.hidden = true;
     fermer.textContent = "Annuler";
     progression.hidden = false;
     const barre = progression.firstElementChild as HTMLElement;
@@ -242,11 +248,91 @@ export async function reconnaissanceTexte(app: Application) {
       statut.textContent = resume;
       console.info(`OCR : ${pluriel(bilan.faites.length, "page")} en ${Math.round(performance.now() - debut)} ms`);
     }
-    copier.hidden = exporter.hidden = !Object.keys(bilan.textes).length;
+    voir.hidden = copier.hidden = exporter.hidden = !Object.keys(bilan.textes).length;
     statut.scrollIntoView({ block: "nearest" });
     if (modifie) await app.apresOcr(bilan);
   });
 
   setTimeout(() => lancer.focus(), 50);
   await f.fermee;
+  if (ouvrirResultat && bilan) await resultatOcr(app, bilan);
+}
+
+/** Fenêtre « Texte reconnu » : le texte page par page, avec une recherche qui ignore majuscules et accents.
+ * « Montrer dans le document » ferme la fenêtre et ouvre la recherche du document sur la même occurrence. */
+export async function resultatOcr(app: Application, bilan: BilanOcr) {
+  const f = fenetre("Texte reconnu", { classe: "large ocr-resultat" });
+  const champ = el("input", { type: "search", class: "entree", placeholder: "Chercher un mot dans le texte reconnu", "aria-label": "Chercher un mot dans le texte reconnu", title: "Les majuscules et les accents ne comptent pas. Entrée : occurrence suivante ; Maj+Entrée : précédente." });
+  const compte = el("span", { class: "compte", "aria-live": "polite" });
+  const zone = el("div", { class: "texte-ocr", tabindex: "0", "aria-label": "Texte reconnu" });
+  const pages = Object.keys(bilan.textes).map(Number).sort((a, b) => a - b);
+  const blocs = new Map<number, HTMLElement>();
+  for (const page of pages) {
+    const bloc = el("div", { class: "page-ocr" });
+    blocs.set(page, bloc);
+    zone.append(el("h3", { text: `Page ${page + 1}` }), bloc);
+  }
+  let occurrences = chercherTexteOcr(bilan.textes, "");
+  let courante = -1;
+  const afficher = () => {
+    for (const page of pages) {
+      const texte = bilan.textes[page];
+      const bloc = blocs.get(page)!;
+      bloc.replaceChildren();
+      let k = 0;
+      occurrences.forEach((o, n) => {
+        if (o.page !== page) return;
+        bloc.append(texte.slice(k, o.debut), el("mark", { class: n === courante ? "courante" : "", text: texte.slice(o.debut, o.fin) }));
+        k = o.fin;
+      });
+      bloc.append(texte.slice(k));
+    }
+    if (!champ.value.trim()) compte.textContent = "";
+    else if (!occurrences.length) compte.textContent = "Aucun résultat";
+    else compte.textContent = `${courante + 1} sur ${occurrences.length} · page ${occurrences[courante].page + 1}`;
+    montrer.disabled = !occurrences.length;
+    zone.querySelector("mark.courante")?.scrollIntoView({ block: "center" });
+  };
+  const avancer = (sens: number) => {
+    if (!occurrences.length) return;
+    courante = (courante + sens + occurrences.length) % occurrences.length;
+    afficher();
+  };
+  champ.addEventListener("input", () => {
+    occurrences = chercherTexteOcr(bilan.textes, champ.value);
+    courante = occurrences.length ? 0 : -1;
+    afficher();
+  });
+  champ.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    avancer(e.shiftKey ? -1 : 1);
+  });
+  const precedente = el("button", { type: "button", class: "bouton cadre", title: "Occurrence précédente (Maj+Entrée)", "aria-label": "Occurrence précédente", html: icone("haut"), onclick: () => avancer(-1) });
+  const suivante = el("button", { type: "button", class: "bouton cadre", title: "Occurrence suivante (Entrée)", "aria-label": "Occurrence suivante", html: icone("bas"), onclick: () => avancer(1) });
+  const montrer = el("button", { type: "button", class: "bouton principal", text: "Montrer dans le document", title: "Fermer cette fenêtre et surligner cette occurrence sur la page" });
+  const copier = el("button", { type: "button", class: "bouton cadre", html: `${icone("liste")}<span>Copier le texte</span>` });
+  copier.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(texteExporte(bilan));
+      compte.textContent = "Texte copié.";
+    } catch {
+      compte.textContent = "Copie refusée par le navigateur.";
+    }
+  });
+  let cible: { mot: string; page: number; rang: number } | null = null;
+  montrer.addEventListener("click", () => {
+    const o = occurrences[courante];
+    if (!o) return;
+    cible = { mot: bilan.textes[o.page].slice(o.debut, o.fin), page: o.page, rang: o.rang };
+    f.fermer();
+  });
+  f.corps.append(el("div", { class: "recherche-ocr" }, champ, precedente, suivante, compte), zone);
+  f.pied.append(copier, el("span", { style: { flex: "1" } }), el("button", { type: "button", class: "bouton cadre", text: "Fermer", onclick: () => f.fermer() }), montrer);
+  afficher();
+  setTimeout(() => champ.focus(), 50);
+  await f.fermee;
+  // (TypeScript ne voit pas l'affectation faite dans l'écouteur : type rappelé.)
+  const choisie = cible as { mot: string; page: number; rang: number } | null;
+  if (choisie) await app.montrerMotOcr(choisie.mot, choisie.page, choisie.rang);
 }

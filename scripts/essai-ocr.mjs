@@ -207,7 +207,33 @@ try {
   verifier(txt.suggestedFilename() === "scan-essai (texte).txt", `nom du .txt : ${txt.suggestedFilename()}`);
   await txt.saveAs(path.join(sortie, "texte.txt"));
   verifier(fs.readFileSync(path.join(sortie, "texte.txt"), "utf8").includes("château de la forêt"), "le .txt devrait contenir le texte reconnu");
-  await fermerFenetre(dialogue);
+
+  // « Voir le résultat… » : texte reconnu page par page, recherche sans accents, puis le mot montré dans le document.
+  await dialogue.getByRole("button", { name: "Voir le résultat…" }).click();
+  const resultat = page.locator("dialog.ocr-resultat");
+  await resultat.waitFor();
+  verifier((await resultat.locator("h3").allTextContents()).join(",") === "Page 1,Page 3", "résultat : titres des pages");
+  const champResultat = resultat.getByRole("searchbox", { name: "Chercher un mot dans le texte reconnu" });
+  await champResultat.fill("DEPOT de garantie");
+  verifier((await resultat.locator(".compte").textContent()) === "1 sur 1 · page 3", `résultat, compte : ${await resultat.locator(".compte").textContent()}`);
+  verifier((await resultat.locator("mark.courante").textContent()) === "dépôt de garantie", "résultat : surlignage");
+  await champResultat.fill("la");
+  const nombreLa = await resultat.locator("mark").count();
+  verifier(nombreLa > 2, `résultat, « la » : ${nombreLa}`);
+  await champResultat.press("Shift+Enter");
+  verifier((await resultat.locator(".compte").textContent()).startsWith(`${nombreLa} sur ${nombreLa}`), "Maj+Entrée : dernière occurrence");
+  await champResultat.press("Enter");
+  verifier((await resultat.locator(".compte").textContent()).startsWith(`1 sur ${nombreLa}`), "Entrée : première occurrence");
+  await champResultat.fill("depot de garantie");
+  await page.screenshot({ path: path.join(captures, "ocr-resultat.png") });
+  await resultat.getByRole("button", { name: "Montrer dans le document" }).click();
+  await resultat.waitFor({ state: "detached" });
+  await page.waitForTimeout(500);
+  verifier((await page.getByRole("searchbox", { name: "Rechercher" }).inputValue()) === "dépôt de garantie", "recherche du document : mot");
+  verifier((await page.locator(".sous-barre .compte").textContent()) === "1 sur 1", "recherche du document : occurrence");
+  verifier((await page.locator(".page").nth(2).locator(".occurrence.courante").count()) === 1, "occurrence surlignée sur la page 3");
+  await page.screenshot({ path: path.join(captures, "ocr-resultat-document.png") });
+  await page.keyboard.press("Escape");
 
   // Recherche sans accents dans le texte reconnu, page redressée.
   verifier((await chercher(page, "chateau de la foret")) === 1, "recherche « chateau de la foret »");
@@ -344,7 +370,15 @@ try {
   bilan.push(`Téléphone, 3 pages : ${dureeTel} ms — ${resumeTel}`);
   verifier(resumeTel.startsWith("Texte reconnu sur 2 pages (redressée : page 3"), `téléphone : ${resumeTel}`);
   await tel.screenshot({ path: path.join(captures, "telephone-ocr-bilan.png") });
-  await dialogue.locator("footer").getByRole("button", { name: "Fermer", exact: true }).tap();
+  await dialogue.getByRole("button", { name: "Voir le résultat…" }).tap();
+  const resultatTel = tel.locator("dialog.ocr-resultat");
+  await resultatTel.waitFor();
+  await resultatTel.getByRole("searchbox").fill("riviere");
+  const boiteResultat = await resultatTel.boundingBox();
+  verifier(boiteResultat.x >= 0 && boiteResultat.x + boiteResultat.width <= 390 && boiteResultat.height <= 844, `résultat hors de l'écran : ${JSON.stringify(boiteResultat)}`);
+  verifier((await resultatTel.locator(".compte").textContent()).startsWith("1 sur 1"), "téléphone, résultat : « riviere »");
+  await tel.screenshot({ path: path.join(captures, "telephone-ocr-resultat.png") });
+  await resultatTel.locator("footer").getByRole("button", { name: "Fermer", exact: true }).tap();
   await tel.getByRole("navigation", { name: "Actions du document" }).getByRole("button", { name: "Chercher" }).tap();
   await tel.getByRole("searchbox", { name: "Rechercher" }).fill("riviere");
   await tel.waitForTimeout(800);
