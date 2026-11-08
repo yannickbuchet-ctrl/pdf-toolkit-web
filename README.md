@@ -2,8 +2,7 @@
 
 Un éditeur de PDF simple et en français qui fonctionne **entièrement dans votre navigateur** : modifier le texte,
 organiser et assembler les pages, remplir les formulaires, signer, protéger par mot de passe, compresser, créer des
-photos d'identité, comparer deux versions d'un document et rendre un document scanné cherchable (reconnaissance de
-texte).
+photos d'identité, comparer deux versions d'un document et lire le texte des documents scannés (reconnaissance de texte, OCR).
 
 **Ouvrir le site : <https://yannickbuchet-ctrl.github.io/pdf-toolkit-web/>**
 
@@ -63,7 +62,7 @@ Windows, avec le même moteur : MuPDF.
   photo de plus de 16 millions de pixels est réduite à cette taille, qui suffit pour imprimer une page A4 entière en
   haute qualité, et évite de saturer la mémoire d'un téléphone.
 
-### Rendre un scan cherchable (OCR)
+### Reconnaissance de texte (OCR)
 
 Outils → **Reconnaissance de texte (OCR)** (Ctrl+Maj+O). Le texte des pages scannées est lu sur l'image, puis posé
 dessus en **calque invisible**, mot par mot, à la place de chaque mot : la page garde son aspect, mais son texte se

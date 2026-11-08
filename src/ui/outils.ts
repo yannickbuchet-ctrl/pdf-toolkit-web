@@ -34,7 +34,7 @@ export function accueil(app: Application): HTMLElement {
     el("div", { html: icone("depot") }),
     el("p", { style: { margin: "0", fontSize: "1.1rem" } }, el("strong", { text: "Glissez un PDF ici" }), " ou"),
     ouvrir,
-    el("p", { class: "aide", style: { margin: "0" }, text: "Plusieurs PDF déposés ensemble sont proposés à la fusion ; une photo, aux photos d’identité." }));
+    el("p", { class: "aide", style: { margin: "0" }, text: "Déposez plusieurs PDF pour les fusionner, ou une photo pour en faire des photos d’identité." }));
   const fonction = (ic: string, titre: string, texte: string, action: () => void) =>
     el("button", { type: "button", class: "fonction", onclick: action }, el("span", { html: icone(ic) }), el("div", {}, el("strong", { text: titre }), el("span", { text: texte })));
   const fonctions = el("div", { class: "fonctions" },
@@ -42,7 +42,7 @@ export function accueil(app: Application): HTMLElement {
     fonction("fusion", "Fusionner des PDF", "Assemblez plusieurs fichiers dans l’ordre de votre choix.", () => fusion(app)),
     fonction("pages", "Organiser les pages", "Pivoter, déplacer, supprimer, extraire ou insérer des pages.", () => app.ouvrirDialogue()),
     fonction("comparer", "Comparer deux PDF", "Différences de texte mot à mot et différences visuelles, côte à côte, avec rapport.", () => comparer(app)),
-    fonction("ocr", "Rendre un scan cherchable", "Reconnaissance de texte (OCR) : le texte d’un scan se cherche et se copie.", () => app.ouvrirDialogue()),
+    fonction("ocr", "Reconnaissance de texte (OCR)", "Le texte d’un document scanné se cherche, se sélectionne et se copie.", () => app.ouvrirDialogue()),
     fonction("photo", "Photos d’identité", "Une planche aux dimensions exactes, à imprimer sans mise à l’échelle.", () => photoIdentite(app)),
     fonction("signature", "Signer et annoter", "Signature, image, surlignage, notes, dessin et formulaires.", () => app.ouvrirDialogue()),
     fonction("compresser", "Compresser", "Réduisez la taille d’un PDF pour l’envoyer par e-mail.", () => app.ouvrirDialogue()),
@@ -51,7 +51,7 @@ export function accueil(app: Application): HTMLElement {
   return el("div", { class: "accueil" },
     el("div", { class: "contenu" },
       el("h1", { text: "Un éditeur de PDF, dans votre navigateur" }),
-      el("p", { class: "sous-titre", text: "Modifier le texte, organiser les pages, fusionner, signer, protéger, compresser, comparer vos PDF et rendre vos scans cherchables." }),
+      el("p", { class: "sous-titre", text: "Modifier le texte, organiser les pages, fusionner, signer, protéger, compresser, comparer vos PDF et lire le texte de vos scans (OCR)." }),
       depot,
       el("div", { class: "confidentialite" }, el("span", { html: icone("bouclier") }),
         el("div", {}, el("strong", { text: "Vos documents ne quittent jamais votre appareil. " }),
