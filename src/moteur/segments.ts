@@ -20,6 +20,8 @@ export interface CaracterePage {
   gras: boolean;
   italique: boolean;
   ligne: number;
+  /** Texte d'un calque OCR (police GlyphLessFont) : invisible, posé sur l'image d'un scan. */
+  ocr?: boolean;
 }
 
 /** Un morceau de texte modifiable : une suite de caractères d'une même ligne, dans une même police, taille et couleur. */
@@ -37,6 +39,8 @@ export interface Segment {
   gras: boolean;
   italique: boolean;
   ligne: number;
+  /** Texte reconnu par l'OCR, invisible sur l'image du scan : il se cherche et se copie, mais ne se modifie pas. */
+  ocr: boolean;
   /** Bords gauche et droit de chaque caractère du texte (un par point de code), pour surligner une partie. */
   bords: [number, number][];
 }
@@ -44,6 +48,9 @@ export interface Segment {
 const blanc = (c: CaracterePage) => estBlanc(c.code);
 
 function memeStyle(a: CaracterePage, b: CaracterePage): boolean {
+  // Un calque OCR étire chaque mot à sa largeur : la taille apparente change d'un mot à l'autre. Ses mots d'une même
+  // ligne restent ensemble, pour que la recherche trouve aussi une suite de mots.
+  if (a.ocr || b.ocr) return !!a.ocr && !!b.ocr;
   return a.police === b.police && Math.abs(a.taille - b.taille) < 0.05 && a.couleur === b.couleur;
 }
 
@@ -64,6 +71,7 @@ function segment(c: CaracterePage[]): Segment {
     gras: premier.gras,
     italique: premier.italique,
     ligne: premier.ligne,
+    ocr: !!premier.ocr,
     bords: c.map((x) => [x.x0, x.x1]),
   };
 }
@@ -94,7 +102,9 @@ export function decouper(caracteres: CaracterePage[]): Segment[] {
       continue;
     }
     const derniere = courant[courant.length - 1];
-    const memeLigne = c.ligne === r.ligne;
+    // MuPDF ouvre une ligne à chaque mot d'un calque OCR (chacun a son étirement) : ses mots sur la même ligne de base
+    // forment une seule ligne.
+    const memeLigne = c.ligne === r.ligne || (!!c.ocr && !!r.ocr && Math.abs(c.origineY - r.origineY) < 0.5);
     const loin = c.x0 - derniere.x1 > 3 * r.taille;
     if (!memeLigne || loin) {
       clore();

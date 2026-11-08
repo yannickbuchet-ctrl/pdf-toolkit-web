@@ -123,7 +123,7 @@ export function lirePage(page: mupdf.Page): Lecture {
           x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys),
           origineX: origine[0], origineY: origine[1],
           police: nom, taille, couleur: couleurRGB(couleur as number[]),
-          gras: font.isBold(), italique: font.isItalic(), ligne,
+          gras: font.isBold(), italique: font.isItalic(), ligne, ocr: nom.includes("GlyphLessFont"),
         });
       },
     });

@@ -221,7 +221,7 @@ export function normaliserRecherche(texte: string, casse: boolean, accents: bool
 
 export interface Occurrence {
   page: number;
-  segment: Pick<Segment, "texte" | "origineX" | "origineY">;
+  segment: Pick<Segment, "texte" | "origineX" | "origineY" | "ocr">;
   /** Position dans le texte du morceau, en points de code. */
   debut: number;
   fin: number;
@@ -243,7 +243,7 @@ export function chercher(doc: mupdf.PDFDocument, aiguille: string, casse = false
       while (i >= 0) {
         const debut = n.origine[i];
         const fin = n.origine[i + cherche.length - 1] + 1;
-        r.push({ page: p, segment: { texte: s.texte, origineX: s.origineX, origineY: s.origineY }, debut, fin, rect: rectangleDe(s, debut, fin) });
+        r.push({ page: p, segment: { texte: s.texte, origineX: s.origineX, origineY: s.origineY, ocr: s.ocr }, debut, fin, rect: rectangleDe(s, debut, fin) });
         i = n.texte.indexOf(cherche, i + cherche.length);
       }
     }

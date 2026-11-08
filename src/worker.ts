@@ -21,6 +21,8 @@ import { estPlanche, lirePlanche, planchePdf } from "./moteur/photo";
 import { imageEnPng } from "./moteur/images";
 import { comparer, superposition, type Options, type Resultat } from "./moteur/comparaison";
 import { rapportComparaison } from "./moteur/rapport";
+import { imageOcr, pageATexte, poserCalque } from "./moteur/ocr";
+import type { LigneOcr } from "./moteur/ocrLecture";
 import { APPLICATION } from "./version";
 
 mupdf.setLog(null);
@@ -172,9 +174,12 @@ const methodes = {
 
   /** Remplace des occurrences : tous les morceaux d'une page sont réécrits ensemble. */
   remplacer_occurrences(a: { occurrences: Occurrence[]; remplacement: string }) {
-    return operation(a.occurrences.length > 1 ? "tout remplacer" : "remplacement", () => {
+    // Le texte reconnu par l'OCR est invisible sur l'image du scan : il ne se remplace pas.
+    const occurrences = a.occurrences.filter((o) => !o.segment.ocr);
+    if (!occurrences.length) return [];
+    return operation(occurrences.length > 1 ? "tout remplacer" : "remplacement", () => {
       const parPage = new Map<number, Map<string, { o: Occurrence; plages: [number, number][] }>>();
-      for (const o of a.occurrences) {
+      for (const o of occurrences) {
         const cle = `${o.segment.texte}|${o.segment.origineX}|${o.segment.origineY}`;
         if (!parPage.has(o.page)) parPage.set(o.page, new Map());
         const m = parPage.get(o.page)!;
@@ -414,6 +419,24 @@ const methodes = {
   rapport(a: { date: number }) {
     if (!comparaison.a || !comparaison.b || !comparaison.resultat) throw new Error("Aucune comparaison à enregistrer.");
     return rapportComparaison(comparaison.resultat, comparaison.a.doc, comparaison.b.doc, comparaison.a.nom, comparaison.b.nom, APPLICATION, new Date(a.date));
+  },
+
+  /* Reconnaissance de texte (OCR) : Tesseract lit les images dans son propre Web Worker, le moteur PDF les fournit
+     et pose le calque de texte. Toute l'opération s'annule d'un coup (Ctrl+Z) : l'état est mémorisé avant la première
+     page modifiée. */
+
+  ocrATexte(a: { page: number }) {
+    return pageATexte(doc().loadPage(a.page));
+  },
+
+  ocrImage(a: { page: number; ppp: number; rotation: number }) {
+    return imageOcr(doc().loadPage(a.page), a.ppp, a.rotation);
+  },
+
+  ocrPoser(a: { page: number; lignes: LigneOcr[]; rotation: number; premiere: boolean }) {
+    if (a.premiere) operation("reconnaissance de texte (OCR)", () => poserCalque(doc(), a.page, a.lignes, a.rotation));
+    else poserCalque(doc(), a.page, a.lignes, a.rotation);
+    return null;
   },
 
   fermerComparaison() {
