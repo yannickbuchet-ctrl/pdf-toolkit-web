@@ -149,6 +149,122 @@ export async function vueComparaison(app: Application) {
     cote.scrollTop += page.top + p.haut * page.height - vue.top;
     cote.scrollLeft += page.left + p.milieu * page.width - (vue.left + vue.width / 2);
   };
+  /* --- Zoom (Ctrl+molette, pincement) ----------------------------------------------------------------------------------
+   * Chaque page est dans une fenêtre de la largeur de sa colonne ; le zoom agrandit la page dans sa fenêtre. Toutes les
+   * pages partagent le même zoom et le même décalage horizontal : en côte à côte, A et B montrent toujours la même zone,
+   * et le défilement vertical, commun aux deux colonnes, les garde alignées. */
+  let zoom = 1;
+  /** Décalage horizontal, en fraction de la largeur de la page (0 : bord gauche visible). */
+  let decalage = 0;
+  let largeurBase = 0;
+  const ZOOM_MAX = 8;
+  const fenetres: { fenetre: HTMLElement; page: HTMLElement; hauteur: number }[] = [];
+  const borner = () => {
+    decalage = Math.min(Math.max(0, decalage), Math.max(0, 1 - 1 / zoom));
+  };
+  /** Applique zoom et décalage aux pages déjà affichées (les images sont étirées, puis recalculées plus nettes). */
+  const appliquerZoom = () => {
+    borner();
+    const l = largeurBase * zoom;
+    for (const { fenetre, page, hauteur } of fenetres) {
+      fenetre.style.height = `${hauteur * zoom}px`;
+      page.style.width = `${l}px`;
+      page.style.height = `${hauteur * zoom}px`;
+      page.style.transform = `translateX(${-decalage * l}px)`;
+    }
+    valeurZoom.textContent = `${Math.round(zoom * 100)} %`;
+    cote.classList.toggle("zoomee", zoom > 1);
+    clearTimeout(minuterieNettete);
+    minuterieNettete = window.setTimeout(() => {
+      // Recalcul à la nouvelle définition des pages visibles (les autres le seront en entrant dans la vue).
+      for (const r of rendus) {
+        if (r.largeur === l) continue;
+        r.largeur = l;
+        r.fait = false;
+        observateur.unobserve(r.canvas.parentElement!);
+        observateur.observe(r.canvas.parentElement!);
+      }
+    }, 200);
+  };
+  let minuterieNettete = 0;
+  /** Change le zoom en gardant immobile le point (clientX, clientY) de l'écran. */
+  const zoomer = (nouveau: number, clientX?: number, clientY?: number) => {
+    nouveau = Math.min(ZOOM_MAX, Math.max(1, nouveau));
+    if (nouveau === zoom || !fenetres.length) return;
+    const vue = cote.getBoundingClientRect();
+    const x = clientX ?? vue.left + vue.width / 2;
+    const y = clientY ?? vue.top + vue.height / 2;
+    // Page sous le point (ou la plus proche verticalement), et position du point en fraction de cette page.
+    const sous = fenetres.find(({ fenetre }) => {
+      const b = fenetre.getBoundingClientRect();
+      return x >= b.left && x <= b.right && y >= b.top && y <= b.bottom;
+    }) ?? fenetres.reduce((m, f) => {
+      const b = f.fenetre.getBoundingClientRect();
+      const d = Math.abs((b.top + b.bottom) / 2 - y);
+      return !m || d < m.d ? { f, d } : m;
+    }, null as { f: (typeof fenetres)[number]; d: number } | null)?.f;
+    if (!sous) return;
+    const avantF = sous.fenetre.getBoundingClientRect();
+    const avantP = sous.page.getBoundingClientRect();
+    const fx = (x - avantP.left) / avantP.width;
+    const fy = (y - avantP.top) / avantP.height;
+    zoom = nouveau;
+    // Horizontal : le même point de la page reste sous le pointeur.
+    decalage = fx - (x - avantF.left) / (largeurBase * zoom);
+    appliquerZoom();
+    // Vertical : on fait défiler pour ramener ce point à la même hauteur.
+    const apres = sous.page.getBoundingClientRect();
+    cote.scrollTop += apres.top + fy * apres.height - y;
+  };
+  cote.addEventListener("wheel", (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      // Ctrl+molette (et pincement sur un pavé tactile, qui arrive ainsi) : zoom autour du pointeur.
+      e.preventDefault();
+      const pas = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      zoomer(zoom * Math.exp(-pas * 0.0025), e.clientX, e.clientY);
+    } else if (zoom > 1 && (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY))) {
+      // Défilement horizontal (Maj+molette, pavé tactile) : les pages se décalent ensemble.
+      e.preventDefault();
+      const d = e.shiftKey && !e.deltaX ? e.deltaY : e.deltaX;
+      decalage += d / (largeurBase * zoom);
+      appliquerZoom();
+    }
+  }, { passive: false });
+  // Glisser dans une page zoomée : déplace la vue (horizontalement le décalage commun, verticalement le défilement).
+  let glisse: { x: number; y: number; decalage: number; haut: number } | null = null;
+  cote.addEventListener("pointerdown", (e) => {
+    if (zoom <= 1 || e.button !== 0 || !(e.target as HTMLElement).closest(".fenetre-page")) return;
+    glisse = { x: e.clientX, y: e.clientY, decalage, haut: cote.scrollTop };
+    cote.setPointerCapture(e.pointerId);
+    cote.classList.add("glisse");
+  });
+  cote.addEventListener("pointermove", (e) => {
+    if (!glisse) return;
+    decalage = glisse.decalage - (e.clientX - glisse.x) / (largeurBase * zoom);
+    cote.scrollTop = glisse.haut - (e.clientY - glisse.y);
+    appliquerZoom();
+  });
+  const finGlisse = () => {
+    glisse = null;
+    cote.classList.remove("glisse");
+  };
+  cote.addEventListener("pointerup", finGlisse);
+  cote.addEventListener("pointercancel", finGlisse);
+  cote.addEventListener("keydown", (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    if (e.key === "0") zoomer(1);
+    else if (e.key === "+" || e.key === "=") zoomer(zoom * 1.25);
+    else if (e.key === "-") zoomer(zoom / 1.25);
+    else return;
+    e.preventDefault();
+  });
+  const valeurZoom = el("span", { class: "valeur-zoom", text: "100 %" });
+  const commandesZoom = el("span", { class: "zoom-comparaison", title: "Ctrl+molette sur les pages : zoom autour du pointeur ; glisser pour se déplacer" },
+    el("button", { type: "button", class: "bouton cadre", text: "−", "aria-label": "Zoom arrière", onclick: () => zoomer(zoom / 1.25) }),
+    valeurZoom,
+    el("button", { type: "button", class: "bouton cadre", text: "+", "aria-label": "Zoom avant", onclick: () => zoomer(zoom * 1.25) }),
+    el("button", { type: "button", class: "bouton cadre", text: "100 %", "aria-label": "Revenir à la page entière", onclick: () => zoomer(1) }));
+
   // Sur téléphone, les options et les fichiers se replient après la comparaison pour laisser la place aux pages ; ce
   // bouton (caché sur ordinateur) les rouvre.
   const plier = el("button", { type: "button", class: "bouton cadre plier", text: "Options et fichiers", "aria-expanded": "true" });
@@ -157,7 +273,7 @@ export async function vueComparaison(app: Application) {
       el("label", { class: "option" }, "Comparer :", mode), el("label", { class: "option" }, "Réglage :", reglage),
       el("label", { class: "option" }, casse, "Ignorer les majuscules"), el("label", { class: "option" }, ponctuation, "Ignorer la ponctuation"),
       el("label", { class: "curseur option" }, "Tolérance visuelle", tolerance, valeurTolerance),
-      el("label", {}, "Affichage :", affichage),
+      el("label", {}, "Affichage :", affichage), commandesZoom,
       lancer, rapport, plier, el("span", { style: { flex: "1", minWidth: "120px" } }, progression, etat), legende),
     el("div", { class: "versions" }, za.zone, inverser, zb.zone),
     el("div", { class: "resultats" }, liste, cote));
@@ -195,12 +311,15 @@ export async function vueComparaison(app: Application) {
   }, { root: cote, rootMargin: "600px 0px" });
   const marques: { element: HTMLElement; index: number }[] = [];
 
-  /** La marque d'une différence sur une page affichée à l'échelle s (rectangle en points de la page). */
-  const marque = (d: Difference, i: number, r: [number, number, number, number], s: number) => {
+
+  /** La marque d'une différence sur une page de l × h points (rectangle en points de la page), placée en proportion de
+   * la page pour suivre le zoom. */
+  const marque = (d: Difference, i: number, r: [number, number, number, number], l: number, h: number) => {
     const texte = TYPES_TEXTE.includes(d.type);
+    const pc = (v: number, t: number) => `${(v / t) * 100}%`;
     const m = el("div", {
       class: `marque-diff ${texte ? "texte" : "cadre"}`, title: `${TYPES[d.type][1]} : ${description(d)}`,
-      style: { left: `${r[0] * s}px`, top: `${r[1] * s}px`, width: `${(r[2] - r[0]) * s}px`, height: `${(r[3] - r[1]) * s}px`, ...(texte ? { background: TYPES[d.type][0] } : { borderColor: TYPES[d.type][0] }) },
+      style: { left: pc(r[0], l), top: pc(r[1], h), width: pc(r[2] - r[0], l), height: pc(r[3] - r[1], h), ...(texte ? { background: TYPES[d.type][0] } : { borderColor: TYPES[d.type][0] }) },
     });
     marques.push({ element: m, index: i });
     return m;
@@ -217,7 +336,16 @@ export async function vueComparaison(app: Application) {
     liste.append(el("p", { style: { margin: "4px" } }, el("strong", { text: items.length ? `${pluriel(items.length, "différence")}` : "Aucune différence" }),
       el("br"), el("span", { class: "aide", text: items.length ? resume(items) : "Les deux versions sont identiques selon les options choisies." })));
     for (const n of res.notes) liste.append(el("p", { class: "alerte", text: n }));
-    const largeur = largeurColonne();
+    largeurBase = largeurColonne();
+    const largeur = largeurBase * zoom;
+    fenetres.length = 0;
+    /** Une page dans sa fenêtre (largeur de la colonne, hauteur suivant le zoom). */
+    const fenetre = (page: HTMLElement, hauteurBase: number) => {
+      page.style.transform = `translateX(${-decalage * largeur}px)`;
+      const f = el("div", { class: "fenetre-page", style: { width: `${largeurBase}px`, height: `${hauteurBase * zoom}px` } }, page);
+      fenetres.push({ fenetre: f, page, hauteur: hauteurBase });
+      return f;
+    };
     res.paires.forEach((paire, k) => {
       const diffs = items.map((d, i) => ({ d, i })).filter(({ d }) => d.paire === k);
       if (diffs.length) {
@@ -244,7 +372,6 @@ export async function vueComparaison(app: Application) {
         const c = paire[0] !== null ? "a" : "b";
         const index = (c === "a" ? paire[0] : paire[1])!;
         const ref = versions[c]!.pages[index];
-        const s = largeur / ref.largeur;
         const canvas = el("canvas", { "aria-label": paire[0] !== null && paire[1] !== null ? `Page ${paire[0] + 1} de A superposée à la page ${paire[1] + 1} de B` : `Version ${c.toUpperCase()}, page ${index + 1}` });
         const page = el("div", { class: "page-comparee", style: { width: `${largeur}px`, height: `${(largeur * ref.hauteur) / ref.largeur}px` } }, canvas);
         const marquees = new Set<number>();
@@ -256,11 +383,11 @@ export async function vueComparaison(app: Application) {
             for (const [q, r] of cotePage === "a" ? d.marquesA : d.marquesB) {
               if (q !== p) continue;
               marquees.add(i);
-              page.append(marque(d, i, r, s));
+              page.append(marque(d, i, r, ref.largeur, ref.hauteur));
             }
           }
         }
-        ligne.append(page);
+        ligne.append(fenetre(page, (largeurBase * ref.hauteur) / ref.largeur));
         rendus.push({ canvas, cote: c, page: index, largeur, fait: false, avec: paire[0] !== null && paire[1] !== null ? paire[1] : undefined });
         observateur.observe(page);
         cote.append(ligne);
@@ -269,20 +396,20 @@ export async function vueComparaison(app: Application) {
       for (const [c, index] of [["a", paire[0]], ["b", paire[1]]] as const) {
         const autre = c === "a" ? paire[1] : paire[0];
         const ref = index !== null ? versions[c]!.pages[index] : versions[c === "a" ? "b" : "a"]!.pages[autre!];
-        const hauteur = (largeur * ref.hauteur) / ref.largeur;
+        const hauteurBase = (largeurBase * ref.hauteur) / ref.largeur;
         if (index === null) {
-          ligne.append(el("div", { class: "page-comparee absente", style: { width: `${largeur}px`, height: `${hauteur}px` }, text: "Pas de page correspondante" }));
+          ligne.append(fenetre(el("div", { class: "page-comparee absente", style: { width: `${largeur}px`, height: `${hauteurBase * zoom}px` }, text: "Pas de page correspondante" }), hauteurBase));
           continue;
         }
         const canvas = el("canvas", { "aria-label": `Version ${c.toUpperCase()}, page ${index + 1}` });
-        const page = el("div", { class: "page-comparee", style: { width: `${largeur}px`, height: `${hauteur}px` } }, canvas);
-        const s = largeur / ref.largeur;
+        const page = el("div", { class: "page-comparee", style: { width: `${largeur}px`, height: `${hauteurBase * zoom}px` } }, canvas);
+        const dims = versions[c]!.pages[index];
         for (const { d, i } of diffs) {
           for (const [p, r] of c === "a" ? d.marquesA : d.marquesB) {
-            if (p === index) page.append(marque(d, i, r, s));
+            if (p === index) page.append(marque(d, i, r, dims.largeur, dims.hauteur));
           }
         }
-        ligne.append(page);
+        ligne.append(fenetre(page, hauteurBase));
         rendus.push({ canvas, cote: c, page: index, largeur, fait: false });
         observateur.observe(page);
       }
@@ -302,6 +429,11 @@ export async function vueComparaison(app: Application) {
     const d: Difference = resultat.differences[courant];
     marquerCourante();
     const cible = marques.find((m) => m.index === courant)?.element ?? cote.querySelector(`[data-paire="${d.paire}"]`);
+    if (zoom > 1 && cible?.classList.contains("marque-diff")) {
+      const centre = (parseFloat(cible.style.left) + parseFloat(cible.style.width) / 2) / 100;
+      decalage = centre - 1 / (2 * zoom);
+      appliquerZoom();
+    }
     cible?.scrollIntoView({ block: "center", behavior: "smooth" });
     (liste.querySelector(`.difference[data-index="${courant}"]`) as HTMLElement | null)?.scrollIntoView({ block: "nearest" });
     etat.textContent = `Différence ${courant + 1} sur ${resultat.differences.length} : ${TYPES[d.type][1]} — ${description(d)}`;

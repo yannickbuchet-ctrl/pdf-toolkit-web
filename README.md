@@ -127,6 +127,10 @@ version B (la nouvelle), puis cliquez sur **Comparer**. **Inverser** échange le
 - **Deux affichages** : **côte à côte**, ou **superposées** : chaque page de A et sa page de B en une seule image, ce
   qui n'est que dans A en rouge, ce qui n'est que dans B en vert, ce qui est identique en noir. Passer de l'un à
   l'autre garde l'endroit regardé.
+- **Zoom** : Ctrl+molette (ou pincement sur un pavé tactile) zoome autour du pointeur, jusqu'à 800 % ; les boutons
+  − et + font de même, « 100 % » revient à la page entière, Ctrl+0 aussi. En côte à côte, les pages A et B gardent le
+  même zoom et montrent la même zone. On se déplace en faisant glisser la page, ou avec Maj+molette en largeur ; les
+  pages sont recalculées en haute définition à chaque zoom.
 - **La liste des différences** mène à chacune ; F3 et Maj+F3 passent à la suivante ou à la précédente.
 - **Réglages** :
   - **Document** (par défaut) : pour les textes, contrats, devis…, avec une tolérance visuelle de 10 %.
