@@ -200,3 +200,24 @@ describe("enregistrement", () => {
     }
   });
 });
+
+describe("liens", () => {
+  it("lit les liens web et internes, et écarte les adresses dangereuses", async () => {
+    const { liens, adresseSure } = await import("../src/moteur/pages");
+    const doc = new mupdf.PDFDocument();
+    for (let i = 0; i < 2; i++) doc.insertPage(-1, doc.addPage([0, 0, 595, 842], 0, {}, ""));
+    const p = doc.loadPage(0);
+    p.createLink([50, 50, 200, 70], "https://exemple.fr/page");
+    p.createLink([50, 100, 200, 120], doc.formatLinkURI(new mupdf.LinkDestination(0, 1, "XYZ", 0, 300)));
+    p.createLink([50, 150, 200, 170], "javascript:alert(1)");
+    const r = liens(doc, doc.loadPage(0));
+    expect(r.length).toBe(2);
+    expect(r[0].adresse).toBe("https://exemple.fr/page");
+    expect(r[0].rect).toEqual([50, 50, 200, 70]);
+    expect(r[1].adresse).toBeNull();
+    expect(r[1].page).toBe(1);
+    expect(adresseSure("mailto:a@b.fr")).toBe("mailto:a@b.fr");
+    expect(adresseSure("file:///C:/x")).toBeNull();
+    expect(adresseSure("www.exemple.fr")).toBe("https://www.exemple.fr");
+  });
+});

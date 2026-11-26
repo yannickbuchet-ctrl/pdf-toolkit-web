@@ -47,6 +47,49 @@ export interface Champ {
   taille: number;
 }
 
+/* --- Liens ------------------------------------------------------------------------------------------------------ */
+
+export interface Lien {
+  rect: [number, number, number, number];
+  /** Adresse d'un lien vers l'extérieur (site web, e-mail, téléphone), seulement si elle est sûre ; sinon null. */
+  adresse: string | null;
+  /** Page visée par un lien interne (-1 : aucune), et hauteur visée dans cette page, en points depuis le haut. */
+  page: number;
+  y: number | null;
+}
+
+/** Seuls ces liens s'ouvrent : un PDF peut contenir des adresses « javascript: », « file: »… */
+export function adresseSure(uri: string): string | null {
+  const u = uri.trim();
+  if (/^(https?:\/\/|mailto:|tel:)/i.test(u)) return u;
+  if (/^www\./i.test(u)) return `https://${u}`;
+  return null;
+}
+
+/** Les liens de la page : leur zone (en points, page affichée) et leur destination. */
+export function liens(doc: mupdf.Document, page: mupdf.Page): Lien[] {
+  const r: Lien[] = [];
+  for (const l of page.getLinks()) {
+    const [x0, y0, x1, y1] = l.getBounds();
+    if (!(x1 > x0 && y1 > y0)) continue;
+    const uri = l.getURI() ?? "";
+    if (l.isExternal()) {
+      const adresse = adresseSure(uri);
+      if (adresse) r.push({ rect: [x0, y0, x1, y1], adresse, page: -1, y: null });
+      continue;
+    }
+    try {
+      const dest = doc.resolveLinkDestination(l);
+      if (dest.page >= 0 && dest.page < doc.countPages()) {
+        r.push({ rect: [x0, y0, x1, y1], adresse: null, page: dest.page, y: Number.isFinite(dest.y) ? dest.y : null });
+      }
+    } catch {
+      // destination introuvable : le lien est ignoré
+    }
+  }
+  return r;
+}
+
 /** Champs de formulaire remplissables de la page (les champs en lecture seule et les boutons sont ignorés). */
 export function champs(page: mupdf.PDFPage): Champ[] {
   const r: Champ[] = [];

@@ -7,7 +7,7 @@ import { icone, LOGO } from "./icones";
 import { estImage } from "./images";
 import type { EtatDocument } from "../worker";
 import type { Segment } from "../moteur/segments";
-import type { Champ, Occurrence } from "../moteur/pages";
+import type { Champ, Lien, Occurrence } from "../moteur/pages";
 import { AIDE_TEXTE_OCR, type BilanOcr } from "../moteur/ocrLecture";
 import { APPLICATION } from "../version";
 import * as outils from "./outils";
@@ -26,6 +26,7 @@ interface VuePage {
   enCours: boolean;
   segments: Segment[] | null;
   champs: Champ[] | null;
+  liens: Lien[] | null;
   visible: boolean;
 }
 
@@ -451,7 +452,7 @@ export class Application {
       const calque = el("div", { class: "calque" });
       const div = el("div", { class: "page", role: "img", "aria-label": `Page ${index + 1} sur ${etat.pages.length}` }, canvas, calque);
       div.dataset.index = String(index);
-      const vue: VuePage = { index, el: div, canvas, calque, echelleRendue: 0, enCours: false, segments: null, champs: null, visible: false };
+      const vue: VuePage = { index, el: div, canvas, calque, echelleRendue: 0, enCours: false, segments: null, champs: null, liens: null, visible: false };
       this.dimensionnerPage(vue, p);
       this.installerCalque(vue);
       this.conteneurPages.append(div);
@@ -474,6 +475,7 @@ export class Application {
       v.echelleRendue = 0;
       v.segments = null;
       v.champs = null;
+      v.liens = null;
       if (v.visible) this.rendrePage(v);
     }
     for (const m of this.listeMiniatures.children) {
@@ -513,7 +515,7 @@ export class Application {
   /** Le calque d'une page : morceaux de texte (mode texte), champs de formulaire, résultats de recherche. */
   async preparerCalque(vue: VuePage) {
     const s = this.zoom * PX_PAR_POINT;
-    vue.calque.querySelectorAll(".morceau, .champ, .occurrence").forEach((e) => e.remove());
+    vue.calque.querySelectorAll(".morceau, .champ, .lien, .occurrence").forEach((e) => e.remove());
     if (this.mode === "texte") {
       vue.segments ??= await appel("segments", { page: vue.index }, { discret: true });
       for (const seg of vue.segments) {
@@ -539,10 +541,34 @@ export class Application {
       }
     }
     if (this.mode === "lecture") {
+      // Les liens d'abord : un champ de formulaire posé au même endroit passe au-dessus.
+      vue.liens ??= await appel("liens", { page: vue.index }, { discret: true });
+      for (const l of vue.liens) vue.calque.append(this.lien(l, s));
       vue.champs ??= await appel("champs", { page: vue.index }, { discret: true });
       for (const c of vue.champs) vue.calque.append(this.champFormulaire(vue, c, s));
     }
     this.dessinerOccurrences(vue);
+  }
+
+  /**
+   * Un lien du PDF : une adresse web (ou e-mail) s'ouvre dans un nouvel onglet, le navigateur l'affichant au survol ;
+   * un lien interne mène à sa page.
+   */
+  lien(l: Lien, s: number): HTMLElement {
+    const [x0, y0, x1, y1] = l.rect;
+    const style = { left: `${x0 * s}px`, top: `${y0 * s}px`, width: `${(x1 - x0) * s}px`, height: `${(y1 - y0) * s}px` };
+    if (l.adresse) {
+      const a = el("a", { class: "lien", href: l.adresse, target: "_blank", rel: "noopener noreferrer", title: l.adresse, "aria-label": `Lien : ${l.adresse}`, style });
+      a.addEventListener("pointerdown", (e) => e.stopPropagation());
+      return a;
+    }
+    const a = el("a", { class: "lien", href: "#", title: `Aller à la page ${l.page + 1}`, "aria-label": `Lien vers la page ${l.page + 1}`, style });
+    a.addEventListener("pointerdown", (e) => e.stopPropagation());
+    a.addEventListener("click", (e) => {
+      e.preventDefault();
+      this.allerA(l.page, l.y !== null ? { y: l.y } : {});
+    });
+    return a;
   }
 
   /**
@@ -652,7 +678,7 @@ export class Application {
     this.zoom = z;
     for (const vue of this.vues) {
       this.dimensionnerPage(vue);
-      vue.calque.querySelectorAll(".morceau, .champ, .occurrence, .editeur, .bulle-police").forEach((e) => e.remove());
+      vue.calque.querySelectorAll(".morceau, .champ, .lien, .occurrence, .editeur, .bulle-police").forEach((e) => e.remove());
       if (vue.visible) this.rendrePage(vue);
     }
     this.editeurOuvert = null;

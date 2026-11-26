@@ -47,6 +47,7 @@ export function accueil(app: Application): HTMLElement {
     fonction("pages", "Organiser les pages", "Pivoter, déplacer, supprimer, extraire ou insérer des pages.", puis(() => app.organiserPages())),
     fonction("comparer", "Comparer deux PDF", "Différences de texte mot à mot et différences visuelles, côte à côte, avec rapport.", () => comparer(app)),
     fonction("ocr", "Reconnaissance de texte (OCR)", "Le texte d’un document scanné se cherche, se sélectionne et se copie.", puis(() => ocr(app))),
+    fonction("copies", "Planche de copies", "Une page répétée sur une feuille pour l’imprimer en plus petit : 4 × A6 sur un A4…", puis(() => copies(app))),
     fonction("photo", "Photos d’identité", "Une planche aux dimensions exactes, à imprimer sans mise à l’échelle.", () => photoIdentite(app)),
     fonction("signature", "Signer et annoter", "Signature, image, surlignage, notes, dessin et formulaires.", puis(() => signature(app))),
     fonction("compresser", "Compresser", "Réduisez la taille d’un PDF pour l’envoyer par e-mail.", puis(() => compresserEtEnregistrer(app))),
@@ -78,6 +79,7 @@ export function menu(app: Application, ancre: HTMLElement) {
     { icone: "liste", texte: "Annotations de la page…", action: () => listeAnnotations(app), actif: ouvert },
     { icone: "ocr", texte: "Reconnaissance de texte (OCR)…", action: () => ocr(app), actif: ouvert },
     null,
+    { icone: "copies", texte: "Planche de copies d’une page…", action: () => copies(app), actif: ouvert },
     { icone: "photo", texte: "Photos d’identité…", action: () => photoIdentite(app) },
     { icone: "photo", texte: "Modifier la planche de photos…", action: () => modifierPlanche(app), actif: ouvert && !!app.etat?.planche },
     { icone: "comparer", texte: "Comparer deux PDF…", action: () => comparer(app) },
@@ -771,6 +773,13 @@ export async function fusion(app: Application, fichiersInitiaux: File[] = []) {
   } catch (e) {
     app.erreur(e, "Fusion impossible");
   }
+}
+
+/** Planche de copies d'une page : le module n'est chargé qu'à la première utilisation. */
+export async function copies(app: Application) {
+  if (!app.etat) return;
+  const m = await import("./copies");
+  await m.dialogueCopies(app);
 }
 
 /* --- Photos d'identité et comparaison (chargées à la demande) ----------------------------------------------------- */

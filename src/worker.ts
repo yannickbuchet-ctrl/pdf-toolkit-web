@@ -11,7 +11,7 @@ import {
   MotDePasseRequis, ouvrir, ouvrirPdf, pivoter, reordonner, supprimerPages, taillesDesPages, type Compression,
 } from "./moteur/document";
 import {
-  ajouterDessin, ajouterForme, ajouterNote, annoterTexte, annotations, champs, chercher, insererImage, remplacerDans, remplir, rendre,
+  ajouterDessin, ajouterForme, ajouterNote, annoterTexte, annotations, champs, chercher, insererImage, liens, remplacerDans, remplir, rendre,
   selectionTexte, supprimerAnnotation, type Couleur, type Occurrence, type Point,
 } from "./moteur/pages";
 import { ajouterTexte, ErreurPdf, modifierTexte, policesLocales, segmentsDePage, type Edition } from "./moteur/texte";
@@ -19,6 +19,7 @@ import { policesDuDocument } from "./moteur/infoPolices";
 import { normaliser } from "./moteur/polices";
 import { estPlanche, lirePlanche, planchePdf } from "./moteur/photo";
 import { imageEnPng } from "./moteur/images";
+import { plancheCopies, type DispositionCopies } from "./moteur/copies";
 import { comparer, superposition, type Options, type Resultat } from "./moteur/comparaison";
 import { rapportComparaison } from "./moteur/rapport";
 import { imageOcr, pageATexte, poserCalque } from "./moteur/ocr";
@@ -204,6 +205,10 @@ const methodes = {
     return null;
   },
 
+  liens(a: { page: number }) {
+    return liens(doc(), doc().loadPage(a.page));
+  },
+
   annotations(a: { page: number }) {
     return annotations(doc().loadPage(a.page));
   },
@@ -370,6 +375,16 @@ const methodes = {
 
   planche(a: { jpeg: Uint8Array; page: [number, number]; photo: [number, number]; positions: [number, number][]; traits: boolean; source: { jpeg: Uint8Array; reglages: string } | null }) {
     const d = planchePdf(a.jpeg, a.page, a.photo, a.positions, a.traits, a.source, APPLICATION);
+    try {
+      return enregistrer(d, { compression: "aucune", motDePasse: null }).octets;
+    } finally {
+      d.destroy();
+    }
+  },
+
+  /** Planche de copies d'une page du document ouvert (le document n'est pas modifié). */
+  plancheCopies(a: { page: number; disposition: DispositionCopies; traits: boolean }) {
+    const d = plancheCopies(doc(), a.page, a.disposition, a.traits, APPLICATION);
     try {
       return enregistrer(d, { compression: "aucune", motDePasse: null }).octets;
     } finally {

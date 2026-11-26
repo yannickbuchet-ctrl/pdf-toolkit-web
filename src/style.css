@@ -177,6 +177,8 @@ a { color: var(--accent); }
   padding: 4px 8px; font-size: 12.5px; box-shadow: var(--ombre); display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: center;
 }
 .bulle-police button { border: none; background: none; color: var(--accent); cursor: pointer; padding: 0; text-decoration: underline; }
+.lien { position: absolute; z-index: 1; cursor: pointer; border-radius: 2px; }
+.lien:hover, .lien:focus-visible { background: rgb(37 99 235 / 0.12); outline: 1px solid rgb(37 99 235 / 0.45); }
 .champ { position: absolute; z-index: 2; border: 1px solid rgb(37 99 235 / 0.5); background: rgb(219 234 254 / 0.55); color: #000; padding: 0 3px; border-radius: 2px; }
 .champ:focus { background: #fff; border-color: #2563eb; }
 input.champ[type="checkbox"] { margin: 0; accent-color: #2563eb; }
@@ -277,6 +279,8 @@ dialog legend { padding: 0 4px; font-weight: 600; }
 .curseur { display: flex; align-items: center; gap: 8px; }
 .curseur input { flex: 1; min-width: 0; }
 .curseur output { min-width: 3em; text-align: right; font-variant-numeric: tabular-nums; }
+
+.choix-copies .choix { padding: 4px; }
 
 /* --- Comparaison ------------------------------------------------------------------------------------------------ */
 .comparaison { display: grid; grid-template-rows: auto auto 1fr; height: 100%; }

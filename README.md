@@ -33,6 +33,9 @@ Windows, avec le même moteur : MuPDF.
   **Aller à une page** : Ctrl+G, ou le numéro de page dans la barre.
 - **Rechercher** (Ctrl+F) sans tenir compte des accents ni des majuscules (« ete » trouve « Été ») ; F3 et Maj+F3
   passent à l'occurrence suivante ou précédente.
+- **Liens** : un lien vers un site, une adresse e-mail ou un numéro de téléphone s'ouvre dans un nouvel onglet
+  (l'adresse s'affiche au survol) ; un lien vers une autre page du document y mène. Par sécurité, les autres sortes de
+  liens (« javascript: », fichiers de l'ordinateur…) sont ignorées.
 
 ### Modifier et ajouter du texte
 
@@ -142,6 +145,22 @@ version B (la nouvelle), puis cliquez sur **Comparer**. **Inverser** échange le
     visuelle réglable.
 - **Rapport PDF** : synthèse, liste numérotée, pages A et B annotées, puis un gros plan de chaque différence (jusqu'à
   150) : la zone et ses abords dans A, dans B et superposés, avec sa position en millimètres.
+
+### Planche de copies
+
+Menu Outils → **Planche de copies d'une page** : une page (une affiche, un flyer…) répétée **2, 4 ou 8 fois** sur une
+feuille A4 (ou A3, A5, Lettre), pour l'imprimer en plus petit. Sur un A4, cela donne 2 copies au format A5, 4 en A6
+ou 8 en A7 ; la taille obtenue s'affiche à côté de chaque choix, avec un aperçu.
+
+- Les copies sont agrandies ou réduites sans déformation, collées les unes aux autres (une seule coupe entre deux
+  copies), et tournées d'un quart de tour quand elles tiennent mieux ainsi. Seule une marge au bord de la feuille
+  (5 mm par défaut) est laissée, car la plupart des imprimantes n'impriment pas jusqu'au bord.
+- La page est reprise telle quelle, en vectoriel : le texte reste net et le fichier léger. Ses annotations et champs
+  remplis apparaissent sur chaque copie.
+- **Enregistrer en PDF** ou **Imprimer** directement (en taille réelle) ; la planche remplace le document ouvert
+  (Ctrl+Z pour revenir).
+
+Pour imprimer l'affiche seule sur un A3 ou un A4, l'impression ordinaire suffit (Ctrl+P).
 
 ### Photos d'identité
 
@@ -309,6 +328,7 @@ npx playwright install chromium       # une seule fois : navigateur sans fenêtr
 node scripts/parcours-navigateur.mjs  # parcours dans le site construit, captures dans captures/
 node scripts/essai-images.mjs         # formats de photo dans le site construit (dist/essai-images/)
 node scripts/essai-ocr.mjs            # reconnaissance de texte dans le site construit (captures/ocr-*.png)
+node scripts/essai-copies.mjs         # planche de copies et liens, site lancé par « npm run dev -- --port 5180 »
 ```
 
 `scripts/essai-ocr.mjs` passe à l'OCR, dans Chromium, un PDF de trois pages fabriqué pour l'essai (un scan accentué,
